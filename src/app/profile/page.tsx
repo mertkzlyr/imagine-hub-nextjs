@@ -333,7 +333,7 @@ export default function Profile() {
 
             {/* User's Posts */}
             <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">My Creations</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Posts</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {user.posts.map((post) => (
                         <div key={post.id} className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100">
