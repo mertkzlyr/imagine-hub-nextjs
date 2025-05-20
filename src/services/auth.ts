@@ -28,24 +28,30 @@ export const authService = {
     login: async (request: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
         const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
             method: 'POST',
-            headers: API_CONFIG.HEADERS,
+            headers: {
+                ...API_CONFIG.HEADERS,
+            },
             body: JSON.stringify(request),
         });
         if (!response.ok) throw new Error('Login failed');
         return response.json();
     },
 
-    register: async (request: RegisterRequest): Promise<ApiResponse<any>> => {
-        const formData = new FormData();
-        Object.entries(request).forEach(([key, value]) => {
-            if (value !== undefined) {
-                formData.append(key, value);
-            }
-        });
-
+    register: async (request: RegisterRequest | FormData): Promise<ApiResponse<any>> => {
+        let body: FormData;
+        if (request instanceof FormData) {
+            body = request;
+        } else {
+            body = new FormData();
+            Object.entries(request).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    body.append(key, value);
+                }
+            });
+        }
         const response = await fetch(`${API_CONFIG.BASE_URL}/auth/register`, {
             method: 'POST',
-            body: formData,
+            body,
         });
         if (!response.ok) throw new Error('Registration failed');
         return response.json();

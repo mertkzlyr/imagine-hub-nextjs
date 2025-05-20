@@ -147,6 +147,14 @@ export default function Profile() {
         );
     }
 
+    if (error && error !== 'You need to log in to continue.') {
+        return (
+            <div className="bg-red-50 text-red-500 p-4 rounded-md">
+                {error}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-8">
             {error && (
