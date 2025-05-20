@@ -83,27 +83,52 @@ export default function Profile() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        if (file.size > IMAGE_CONFIG.MAX_FILE_SIZE) {
-            setError(`File size must be less than ${IMAGE_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        // Check file size (7MB = 7 * 1024 * 1024 bytes)
+        if (file.size > 7 * 1024 * 1024) {
+            setError('Profile picture must be less than 7MB');
             return;
         }
 
+        // Check file extension
         const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase() as '.jpg' | '.jpeg' | '.png' | '.webp' | '.gif';
         if (!IMAGE_CONFIG.SUPPORTED_IMAGE_EXTENSIONS.includes(extension)) {
             setError(`File type must be one of: ${IMAGE_CONFIG.SUPPORTED_IMAGE_EXTENSIONS.join(', ')}`);
             return;
         }
 
-        try {
-            const response = await userService.updateProfilePicture(file);
-            if (response.success) {
-                fetchUserData();
-                setSuccess('Profile picture updated successfully');
-                setTimeout(() => setSuccess(null), 3000);
+        // Check image dimensions
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+
+        await new Promise<boolean>((resolve) => {
+            img.onload = () => {
+                URL.revokeObjectURL(img.src);
+                if (img.width > 512 || img.height > 512) {
+                    setError('Profile picture dimensions must not exceed 512x512 pixels');
+                    resolve(false);
+                } else {
+                    resolve(true);
+                }
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(img.src);
+                setError('Failed to load image');
+                resolve(false);
+            };
+        }).then(async (isValid) => {
+            if (!isValid) return;
+
+            try {
+                const response = await userService.updateProfilePicture(file);
+                if (response.success) {
+                    fetchUserData();
+                    setSuccess('Profile picture updated successfully');
+                    setTimeout(() => setSuccess(null), 3000);
+                }
+            } catch (error) {
+                setError('Failed to update profile picture');
             }
-        } catch (error) {
-            setError('Failed to update profile picture');
-        }
+        });
     };
 
     if (isLoading) {
