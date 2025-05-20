@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { userService, User, UpdateUserDto, UpdatePasswordDto } from '@/services/user';
 import { IMAGE_CONFIG } from '@/config';
+import Modal from '@/components/Modal';
 
 export default function Profile() {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isEditing, setIsEditing] = useState(false);
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -19,6 +19,8 @@ export default function Profile() {
         currentPassword: '',
         newPassword: '',
     });
+    const [deletePassword, setDeletePassword] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         fetchUserData();
@@ -43,7 +45,6 @@ export default function Profile() {
             const response = await userService.updateProfile(updateData);
             if (response.success && response.data) {
                 setUser(response.data);
-                setIsEditing(false);
                 setSuccess('Profile updated successfully');
                 setTimeout(() => setSuccess(null), 3000);
             }
@@ -58,7 +59,6 @@ export default function Profile() {
             const response = await userService.updatePassword(passwordData);
             if (response.success) {
                 setSuccess('Password updated successfully');
-                setIsChangingPassword(false);
                 setPasswordData({ currentPassword: '', newPassword: '' });
                 setTimeout(() => setSuccess(null), 3000);
             }
@@ -67,17 +67,27 @@ export default function Profile() {
         }
     };
 
+    const handleDeleteAccount = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const response = await userService.deleteAccount(deletePassword);
+            if (response.success) {
+                window.location.href = '/login';
+            }
+        } catch (error) {
+            setError('Failed to delete account');
+        }
+    };
+
     const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file size
         if (file.size > IMAGE_CONFIG.MAX_FILE_SIZE) {
             setError(`File size must be less than ${IMAGE_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB`);
             return;
         }
 
-        // Validate file extension
         const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase() as '.jpg' | '.jpeg' | '.png' | '.webp' | '.gif';
         if (!IMAGE_CONFIG.SUPPORTED_IMAGE_EXTENSIONS.includes(extension)) {
             setError(`File type must be one of: ${IMAGE_CONFIG.SUPPORTED_IMAGE_EXTENSIONS.join(', ')}`);
@@ -87,7 +97,7 @@ export default function Profile() {
         try {
             const response = await userService.updateProfilePicture(file);
             if (response.success) {
-                fetchUserData(); // Refresh user data to get new profile picture
+                fetchUserData();
                 setSuccess('Profile picture updated successfully');
                 setTimeout(() => setSuccess(null), 3000);
             }
@@ -135,7 +145,6 @@ export default function Profile() {
                             fill
                             className="object-cover"
                             onError={(e) => {
-                                // If the profile picture fails to load, show the default image
                                 const target = e.target as HTMLImageElement;
                                 target.src = `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${IMAGE_CONFIG.DEFAULT_PROFILE_PICTURE}`;
                             }}
@@ -167,111 +176,160 @@ export default function Profile() {
                     </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div>
                     <button
-                        onClick={() => setIsEditing(!isEditing)}
+                        onClick={() => setIsModalOpen(true)}
                         className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
                     >
-                        {isEditing ? 'Cancel' : 'Edit Profile'}
-                    </button>
-                    <button
-                        onClick={() => setIsChangingPassword(!isChangingPassword)}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                    >
-                        Change Password
+                        Edit Profile
                     </button>
                 </div>
             </div>
 
-            {/* Edit Profile Form */}
-            {isEditing && (
-                <form onSubmit={handleUpdateProfile} className="space-y-4 p-6 bg-white rounded-lg shadow">
-                    <h2 className="text-xl font-semibold">Edit Profile</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Name</label>
-                            <input
-                                type="text"
-                                value={updateData.name || user.name}
-                                onChange={(e) => setUpdateData({ ...updateData, name: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
+            {/* Edit Profile Modal */}
+            <Modal
+                isOpen={isModalOpen}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setShowDeleteConfirm(false);
+                    setDeletePassword('');
+                }}
+                title="Edit Profile"
+            >
+                <div className="space-y-6">
+                    {/* Profile Information Form */}
+                    <form onSubmit={handleUpdateProfile} className="space-y-4">
+                        <h2 className="text-lg font-medium text-gray-900">Profile Information</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Name</label>
+                                <input
+                                    type="text"
+                                    value={updateData.name || user.name}
+                                    onChange={(e) => setUpdateData({ ...updateData, name: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Surname</label>
+                                <input
+                                    type="text"
+                                    value={updateData.surname || user.surname}
+                                    onChange={(e) => setUpdateData({ ...updateData, surname: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">City</label>
+                                <input
+                                    type="text"
+                                    value={updateData.city || user.city || ''}
+                                    onChange={(e) => setUpdateData({ ...updateData, city: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Country</label>
+                                <input
+                                    type="text"
+                                    value={updateData.country || user.country || ''}
+                                    onChange={(e) => setUpdateData({ ...updateData, country: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Surname</label>
-                            <input
-                                type="text"
-                                value={updateData.surname || user.surname}
-                                onChange={(e) => setUpdateData({ ...updateData, surname: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
+                        <div className="flex justify-end">
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                            >
+                                Save Changes
+                            </button>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">City</label>
-                            <input
-                                type="text"
-                                value={updateData.city || user.city || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, city: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Country</label>
-                            <input
-                                type="text"
-                                value={updateData.country || user.country || ''}
-                                onChange={(e) => setUpdateData({ ...updateData, country: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end">
-                        <button
-                            type="submit"
-                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                        >
-                            Save Changes
-                        </button>
-                    </div>
-                </form>
-            )}
+                    </form>
 
-            {/* Change Password Form */}
-            {isChangingPassword && (
-                <form onSubmit={handleUpdatePassword} className="space-y-4 p-6 bg-white rounded-lg shadow">
-                    <h2 className="text-xl font-semibold">Change Password</h2>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Current Password</label>
-                            <input
-                                type="password"
-                                value={passwordData.currentPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            />
+                    {/* Change Password Form */}
+                    <form onSubmit={handleUpdatePassword} className="space-y-4 pt-4 border-t">
+                        <h2 className="text-lg font-medium text-gray-900">Change Password</h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.currentPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">New Password</label>
+                                <input
+                                    type="password"
+                                    value={passwordData.newPassword}
+                                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    required
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">New Password</label>
-                            <input
-                                type="password"
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            />
+                        <div className="flex justify-end">
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                            >
+                                Update Password
+                            </button>
                         </div>
+                    </form>
+
+                    {/* Delete Account Section */}
+                    <div className="pt-4 border-t">
+                        <h2 className="text-lg font-medium text-red-600 mb-4">Delete Account</h2>
+                        {!showDeleteConfirm ? (
+                            <button
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                            >
+                                Delete Account
+                            </button>
+                        ) : (
+                            <form onSubmit={handleDeleteAccount} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">
+                                        Enter your password to confirm deletion
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={deletePassword}
+                                        onChange={(e) => setDeletePassword(e.target.value)}
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                                    >
+                                        Confirm Deletion
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowDeleteConfirm(false);
+                                            setDeletePassword('');
+                                        }}
+                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        )}
                     </div>
-                    <div className="flex justify-end">
-                        <button
-                            type="submit"
-                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                        >
-                            Update Password
-                        </button>
-                    </div>
-                </form>
-            )}
+                </div>
+            </Modal>
 
             {/* User's Posts */}
             <div>
