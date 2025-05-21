@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authService } from '@/services/auth';
-import { AUTH_CONFIG } from '@/config';
+import { tokenService } from '@/services/token';
 
 export default function Login() {
     const router = useRouter();
@@ -23,9 +23,7 @@ export default function Login() {
         try {
             const response = await authService.login({ email, password });
             if (response.success && response.data?.token) {
-                // Store the token
-                localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, response.data.token);
-                // Redirect to profile page
+                tokenService.setToken(response.data.token);
                 router.push('/profile');
             } else {
                 setError(response.message || 'Login failed');

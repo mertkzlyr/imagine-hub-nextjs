@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { userService, User } from '@/services/user';
 import { authService } from '@/services/auth';
+import { tokenService } from '@/services/token';
 
 interface AuthContextType {
     user: User | null;
@@ -19,7 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = tokenService.getToken();
         if (token) {
             userService.getProfile().then((res) => {
                 if (res.success && res.data) {
@@ -43,10 +44,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const res = await authService.login({ email, password });
             if (res.success && res.data && res.data.token) {
-                localStorage.setItem('token', res.data.token);
+                tokenService.setToken(res.data.token);
                 const profile = await userService.getProfile();
                 if (profile.success && profile.data) {
                     setUser(profile.data);
+                    // Save userId to localStorage for comment ownership
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('userId', profile.data.id.toString());
+                    }
                 }
                 setLoading(false);
                 return true;
@@ -61,8 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
+        tokenService.removeToken();
         setUser(null);
+        // Remove userId from localStorage
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('userId');
+        }
     };
 
     return (

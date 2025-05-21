@@ -1,11 +1,7 @@
 import { API_CONFIG } from '@/config';
-import { ApiResponse, Comment } from './types';
-
-interface CreateCommentDto {
-    postId: string;
-    comment: string;
-    parentId?: string;
-}
+import { ApiResponse, Comment, CreateCommentDto } from './types';
+import { tokenService } from './token';
+import { handleApi401 } from './api401';
 
 interface UpdateCommentDto {
     commentId: string;
@@ -13,14 +9,33 @@ interface UpdateCommentDto {
 }
 
 class CommentService {
-    private baseUrl = `${API_CONFIG.BASE_URL}/comment`;
+    private baseUrl = `${API_CONFIG.BASE_URL}/Comment`;
 
     private async handleResponse<T>(response: Response): Promise<T> {
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-            throw new Error(error.message || 'Failed to fetch data');
+        try {
+            if (!response.ok) {
+                if (handleApi401(response)) {
+                    // Return a standard error response for 401
+                    return { success: false, message: 'You need to log in to continue.' } as T;
+                }
+                const errorData = await response.json().catch(() => ({ message: 'An error occurred' }));
+                // Don't throw error for "already liked" case
+                if (errorData.message?.toLowerCase().includes('already liked')) {
+                    return { success: false, message: errorData.message } as T;
+                }
+                console.error('API Error Response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: errorData
+                });
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error in handleResponse:', error);
+            throw error;
         }
-        return response.json();
     }
 
     async createComment(dto: CreateCommentDto): Promise<ApiResponse<Comment>> {
@@ -28,9 +43,8 @@ class CommentService {
             const response = await fetch(`${this.baseUrl}/comment`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 body: JSON.stringify(dto),
                 credentials: 'include'
@@ -47,8 +61,8 @@ class CommentService {
             const response = await fetch(`${this.baseUrl}/${commentId}`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
@@ -64,9 +78,8 @@ class CommentService {
             const response = await fetch(`${this.baseUrl}`, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 body: JSON.stringify(dto),
                 credentials: 'include'
@@ -83,12 +96,19 @@ class CommentService {
             const response = await fetch(`${this.baseUrl}/${commentId}/like`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
-            return this.handleResponse<ApiResponse<null>>(response);
+            const data = await this.handleResponse<ApiResponse<null>>(response);
+
+            // If the comment is already liked, call unlike endpoint
+            if (!data.success && data.message?.toLowerCase().includes('already liked')) {
+                return this.unlikeComment(commentId);
+            }
+
+            return data;
         } catch (error) {
             console.error('Error liking comment:', error);
             throw error;
@@ -100,8 +120,8 @@ class CommentService {
             const response = await fetch(`${this.baseUrl}/${commentId}/like`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });

@@ -54,4 +54,10 @@ export interface CreatePostDto {
 export interface UpdatePostDto {
     postId: string;
     description: string;
+}
+
+export interface CreateCommentDto {
+    postId: string;
+    comment: string;
+    parentId?: string;
 } 

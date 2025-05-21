@@ -1,5 +1,6 @@
 import { API_CONFIG } from '@/config';
 import { ApiResponse } from './types';
+import { tokenService } from './token';
 
 export interface LoginRequest {
     email: string;
@@ -34,7 +35,11 @@ export const authService = {
             body: JSON.stringify(request),
         });
         if (!response.ok) throw new Error('Login failed');
-        return response.json();
+        const data = await response.json();
+        if (data.success && data.data?.token) {
+            tokenService.setToken(data.data.token);
+        }
+        return data;
     },
 
     register: async (request: RegisterRequest | FormData): Promise<ApiResponse<any>> => {
@@ -56,4 +61,8 @@ export const authService = {
         if (!response.ok) throw new Error('Registration failed');
         return response.json();
     },
+
+    logout: () => {
+        tokenService.removeToken();
+    }
 }; 

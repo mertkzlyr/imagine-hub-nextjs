@@ -1,5 +1,6 @@
 import { ApiResponse } from './types';
 import { API_CONFIG, IMAGE_CONFIG, AUTH_CONFIG } from '@/config';
+import { tokenService } from '@/services/token';
 
 export interface User {
     id: number;
@@ -45,10 +46,9 @@ export interface UpdatePasswordDto {
 }
 
 const getAuthHeaders = () => {
-    const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
     return {
         ...API_CONFIG.HEADERS,
-        Authorization: token ? `Bearer ${token}` : '',
+        ...tokenService.getAuthHeader(),
     };
 };
 
@@ -88,9 +88,7 @@ export const userService = {
         const response = await fetch(`${API_CONFIG.BASE_URL}/user/update-profile-picture`, {
             method: 'POST',
             credentials: 'include',
-            headers: {
-                Authorization: `Bearer ${localStorage.getItem(AUTH_CONFIG.TOKEN_KEY)}`,
-            },
+            headers: getAuthHeaders(),
             body: formData,
         });
         if (!response.ok) throw new Error('Failed to update profile picture');

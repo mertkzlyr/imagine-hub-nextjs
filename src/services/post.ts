@@ -1,6 +1,7 @@
 import { API_CONFIG } from '@/config';
 import { ApiResponse, CreatePostDto, PaginatedResponse, Post, PostDetail, UpdatePostDto } from './types';
 import { handleApi401 } from './api401';
+import { tokenService } from './token';
 
 class PostService {
     private baseUrl = `${API_CONFIG.BASE_URL}/post`;
@@ -13,6 +14,10 @@ class PostService {
                     return { success: false, message: 'You need to log in to continue.' } as T;
                 }
                 const errorData = await response.json().catch(() => ({ message: 'An error occurred' }));
+                // Don't throw error for "already liked" case
+                if (errorData.message?.toLowerCase().includes('already liked')) {
+                    return { success: false, message: errorData.message } as T;
+                }
                 console.error('API Error Response:', {
                     status: response.status,
                     statusText: response.statusText,
@@ -32,8 +37,8 @@ class PostService {
         try {
             const response = await fetch(`${this.baseUrl}/posts?page=${page}&pageSize=${pageSize}`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
@@ -48,8 +53,8 @@ class PostService {
         try {
             const response = await fetch(`${this.baseUrl}/user/posts?page=${page}&pageSize=${pageSize}`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
@@ -71,7 +76,8 @@ class PostService {
             const response = await fetch(`${this.baseUrl}/posts`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 body: formData,
                 credentials: 'include'
@@ -88,8 +94,8 @@ class PostService {
             const response = await fetch(`${this.baseUrl}/posts/${id}`, {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
@@ -105,12 +111,20 @@ class PostService {
             const response = await fetch(`${this.baseUrl}/posts/${postId}/like`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
-            return this.handleResponse<ApiResponse<null>>(response);
+
+            const data = await this.handleResponse<ApiResponse<null>>(response);
+
+            // If the post is already liked, call unlike endpoint
+            if (!data.success && data.message?.toLowerCase().includes('already liked')) {
+                return this.unlikePost(postId);
+            }
+
+            return data;
         } catch (error) {
             console.error('Error liking post:', error);
             throw error;
@@ -122,8 +136,8 @@ class PostService {
             const response = await fetch(`${this.baseUrl}/posts/${postId}/like`, {
                 method: 'DELETE',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 credentials: 'include'
             });
@@ -139,9 +153,8 @@ class PostService {
             const response = await fetch(`${this.baseUrl}/update-description`, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    ...API_CONFIG.HEADERS,
+                    ...tokenService.getAuthHeader(),
                 },
                 body: JSON.stringify(updatePostDto),
                 credentials: 'include'
