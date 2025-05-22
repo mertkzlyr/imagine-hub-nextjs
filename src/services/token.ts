@@ -5,9 +5,9 @@ class TokenService {
     private token: string | null = null;
 
     private constructor() {
-        // Only access localStorage in browser environment
+        // Only access storage in browser environment
         if (typeof window !== 'undefined') {
-            this.token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+            this.token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY) || sessionStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
         }
     }
 
@@ -19,13 +19,22 @@ class TokenService {
     }
 
     public getToken(): string | null {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(AUTH_CONFIG.TOKEN_KEY) || sessionStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
+        }
         return this.token;
     }
 
-    public setToken(token: string): void {
+    public setToken(token: string, rememberMe = true): void {
         this.token = token;
         if (typeof window !== 'undefined') {
-            localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
+            if (rememberMe) {
+                localStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
+                sessionStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+            } else {
+                sessionStorage.setItem(AUTH_CONFIG.TOKEN_KEY, token);
+                localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+            }
         }
     }
 
@@ -33,6 +42,7 @@ class TokenService {
         this.token = null;
         if (typeof window !== 'undefined') {
             localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+            sessionStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
         }
     }
 

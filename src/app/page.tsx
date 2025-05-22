@@ -15,7 +15,7 @@ export default function Home() {
         <div className="flex justify-center gap-4">
           <Link
             href="/create"
-            className="rounded-md bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
             Create Art
           </Link>
@@ -52,7 +52,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="text-center space-y-4">
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-indigo-600 text-xl font-bold">1</span>
+              <span className="text-blue-600 text-xl font-bold">1</span>
             </div>
             <h3 className="text-lg font-semibold">Create</h3>
             <p className="text-gray-600">
@@ -61,7 +61,7 @@ export default function Home() {
           </div>
           <div className="text-center space-y-4">
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-indigo-600 text-xl font-bold">2</span>
+              <span className="text-blue-600 text-xl font-bold">2</span>
             </div>
             <h3 className="text-lg font-semibold">Share</h3>
             <p className="text-gray-600">
@@ -70,7 +70,7 @@ export default function Home() {
           </div>
           <div className="text-center space-y-4">
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto">
-              <span className="text-indigo-600 text-xl font-bold">3</span>
+              <span className="text-blue-600 text-xl font-bold">3</span>
             </div>
             <h3 className="text-lg font-semibold">Connect</h3>
             <p className="text-gray-600">

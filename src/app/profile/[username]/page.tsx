@@ -1,33 +1,58 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { userService, User, UpdateUserDto, UpdatePasswordDto } from '@/services/user';
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import Modal from "@/components/Modal";
 import { IMAGE_CONFIG } from '@/config';
-import Modal from '@/components/Modal';
 import { postService } from '@/services/post';
 import { commentService } from '@/services/comment';
-import { useRouter } from 'next/navigation';
+import { userService } from '@/services/user';
 import { followService } from '@/services/follow';
 import { useToast } from '@/components/ToastProvider';
 import PostModal from '@/components/PostModal';
 
-export default function Profile() {
-    const [user, setUser] = useState<User | null>(null);
+const API_URL = "http://localhost:5169/api/User/by-username/";
+
+type Post = {
+    id: string;
+    imageUrl: string;
+    description: string;
+    likeCount: number;
+    commentCount: number;
+};
+
+type UserProfileType = {
+    id?: number;
+    username: string;
+    name: string;
+    surname: string;
+    city?: string;
+    country?: string;
+    profilePicture?: string;
+    postCount: number;
+    followers: number;
+    following: number;
+    posts: Post[];
+};
+
+type UpdateUserDto = {
+    name?: string;
+    surname?: string;
+    city?: string;
+    country?: string;
+};
+
+type UpdatePasswordDto = {
+    currentPassword: string;
+    newPassword: string;
+};
+
+export default function UserProfile() {
+    const { username } = useParams();
+    const [user, setUser] = useState<UserProfileType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
-
-    // Form states
-    const [updateData, setUpdateData] = useState<UpdateUserDto>({});
-    const [passwordData, setPasswordData] = useState<UpdatePasswordDto>({
-        currentPassword: '',
-        newPassword: '',
-    });
-    const [deletePassword, setDeletePassword] = useState('');
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
     const [selectedPost, setSelectedPost] = useState<any | null>(null);
     const [modalLoading, setModalLoading] = useState(false);
     const [modalError, setModalError] = useState<string | null>(null);
@@ -37,30 +62,248 @@ export default function Profile() {
     const [visibleComments, setVisibleComments] = useState(3);
     const router = useRouter();
     const currentUserId = typeof window !== 'undefined' ? Number(localStorage.getItem('userId') || sessionStorage.getItem('userId')) : null;
-
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [updateData, setUpdateData] = useState<UpdateUserDto>({});
+    const [passwordData, setPasswordData] = useState<UpdatePasswordDto>({
+        currentPassword: '',
+        newPassword: '',
+    });
+    const [deletePassword, setDeletePassword] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [success, setSuccess] = useState<string | null>(null);
+    const paramUsername = Array.isArray(username) ? username[0] : username;
+    const currentUsername = typeof window !== 'undefined' ? localStorage.getItem('username') : null;
+    const isOwnProfile = (
+        (currentUsername && paramUsername && currentUsername.trim().toLowerCase() === paramUsername.trim().toLowerCase()) ||
+        (user && user.id && currentUserId && String(user.id) === String(currentUserId))
+    );
+    const [isFollowing, setIsFollowing] = useState<boolean>(false);
+    const [followLoading, setFollowLoading] = useState(false);
     const [listModalOpen, setListModalOpen] = useState(false);
     const [listType, setListType] = useState<'followers' | 'following'>('followers');
     const [listUsers, setListUsers] = useState<any[]>([]);
     const [listPage, setListPage] = useState(1);
     const [listTotalPages, setListTotalPages] = useState(1);
     const [listLoading, setListLoading] = useState(false);
-
     const { showToast } = useToast();
+
+    const fetchUserData = async () => {
+        if (!username) return;
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${API_URL}${username}`);
+            if (!response.ok) throw new Error("User not found");
+            const data = await response.json();
+            if (data.success && data.data) {
+                setUser(data.data);
+                // Check if following (if not own profile)
+                if (!isOwnProfile && data.data.id) {
+                    followService.getFollowing(1, 100).then(res => {
+                        if (res.success && Array.isArray(res.data)) {
+                            setIsFollowing(res.data.some((u: any) => u.id === data.data.id));
+                        }
+                    });
+                }
+            } else {
+                setError("User not found");
+            }
+        } catch (error) {
+            setError("User not found");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
         fetchUserData();
-    }, []);
+    }, [username]);
 
-    const fetchUserData = async () => {
+    const handlePostClick = async (postId: string) => {
+        setModalLoading(true);
+        setModalError(null);
         try {
-            const response = await userService.getProfile();
+            const response = await postService.getPostById(postId);
             if (response.success && response.data) {
-                setUser(response.data);
+                setSelectedPost(response.data);
+                setVisibleComments(3);
+            } else {
+                setModalError(response.message || 'Failed to load post details');
+            }
+        } catch (err) {
+            setModalError('Failed to load post details');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleCreateComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedPost || !newComment.trim()) return;
+        try {
+            const response = await commentService.createComment({
+                postId: selectedPost.id,
+                comment: newComment.trim()
+            });
+            if (response.success) {
+                const updatedPost = await postService.getPostById(selectedPost.id);
+                if (updatedPost.success && updatedPost.data) {
+                    setSelectedPost(updatedPost.data);
+                }
+                setNewComment('');
+            } else if (response.message === 'You need to log in to continue.') {
+                showToast('You must be logged in to comment.', 'error');
+            } else {
+                showToast('Failed to create comment', 'error');
             }
         } catch (error) {
-            setError('Failed to load profile data');
-        } finally {
-            setIsLoading(false);
+            showToast('Failed to create comment', 'error');
+        }
+    };
+
+    const handleReplySubmit = async (parentId: string, e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedPost || !replyText.trim()) return;
+        try {
+            const response = await commentService.createComment({
+                postId: selectedPost.id,
+                comment: replyText.trim(),
+                parentId,
+            });
+            if (response.success) {
+                const updatedPost = await postService.getPostById(selectedPost.id);
+                if (updatedPost.success && updatedPost.data) {
+                    setSelectedPost(updatedPost.data);
+                }
+                setReplyText('');
+                setReplyingTo(null);
+            } else if (response.message === 'You need to log in to continue.') {
+                showToast('You must be logged in to comment.', 'error');
+            } else {
+                showToast('Failed to reply to comment', 'error');
+            }
+        } catch (error) {
+            showToast('Failed to reply to comment', 'error');
+        }
+    };
+
+    const handleLikePost = async () => {
+        if (!selectedPost) return;
+        const wasLiked = selectedPost.isLikedByCurrentUser;
+        setSelectedPost({ ...selectedPost, isLikedByCurrentUser: !wasLiked, likeCount: selectedPost.likeCount + (wasLiked ? -1 : 1) });
+        try {
+            if (wasLiked) {
+                const response = await postService.unlikePost(selectedPost.id);
+                if (!response.success) {
+                    if (response.message?.toLowerCase().includes('not liked')) {
+                        await postService.likePost(selectedPost.id);
+                    } else {
+                        showToast(response.message || 'Failed to unlike post', 'error');
+                    }
+                }
+            } else {
+                const response = await postService.likePost(selectedPost.id);
+                if (!response.success) {
+                    if (response.message?.toLowerCase().includes('already liked')) {
+                        await postService.unlikePost(selectedPost.id);
+                    } else {
+                        showToast(response.message || 'Failed to like post', 'error');
+                    }
+                }
+            }
+            const updatedPost = await postService.getPostById(selectedPost.id);
+            if (updatedPost.success && updatedPost.data) {
+                setSelectedPost(updatedPost.data);
+            }
+        } catch (error) {
+            showToast('Failed to update like', 'error');
+        }
+    };
+
+    const handleLikeComment = async (commentId: string) => {
+        if (!selectedPost) return;
+        try {
+            const response = await commentService.likeComment(commentId);
+            if (response.success) {
+                const updatedPost = await postService.getPostById(selectedPost.id);
+                if (updatedPost.success && updatedPost.data) {
+                    setSelectedPost(updatedPost.data);
+                }
+            }
+        } catch (error) {
+            showToast('Failed to update like', 'error');
+        }
+    };
+
+    const handleLoadMoreComments = () => {
+        setVisibleComments(prev => prev + 3);
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!selectedPost) return;
+        try {
+            setModalError(null);
+            await commentService.deleteComment(commentId);
+            const updatedPost = await postService.getPostById(selectedPost.id);
+            if (updatedPost.success && updatedPost.data) {
+                setSelectedPost(updatedPost.data);
+            }
+        } catch (error) {
+            setModalError('Failed to delete comment');
+        }
+    };
+
+    const handleUpdatePost = async (desc: string) => {
+        if (!selectedPost) return;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/update-description`, {
+                method: 'PUT',
+                headers: {
+                    'accept': '*/*',
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
+                },
+                body: JSON.stringify({
+                    description: desc,
+                    postId: selectedPost.id,
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Post description updated successfully.', 'success');
+                // Refresh post
+                const updatedPost = await postService.getPostById(selectedPost.id);
+                if (updatedPost.success && updatedPost.data) {
+                    setSelectedPost(updatedPost.data);
+                }
+            } else {
+                showToast(data.message || 'Failed to update post', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to update post', 'error');
+        }
+    };
+
+    const handleDeletePost = async () => {
+        if (!selectedPost) return;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'accept': '*/*',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Post deleted successfully.', 'success');
+                setSelectedPost(null);
+                // Refresh user data to update post count
+                fetchUserData();
+            } else {
+                showToast(data.message || 'Failed to delete post', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to delete post', 'error');
         }
     };
 
@@ -69,7 +312,14 @@ export default function Profile() {
         try {
             const response = await userService.updateProfile(updateData);
             if (response.success && response.data) {
-                setUser(response.data);
+                const updatedUser: UserProfileType = {
+                    ...response.data,
+                    posts: response.data.posts.map(post => ({
+                        ...post,
+                        id: post.id.toString()
+                    }))
+                };
+                setUser(updatedUser);
                 setSuccess('Profile updated successfully');
                 setTimeout(() => setSuccess(null), 3000);
             }
@@ -156,194 +406,21 @@ export default function Profile() {
         });
     };
 
-    const handlePostClick = async (postId: string) => {
-        setModalLoading(true);
-        setModalError(null);
+    const handleFollow = async () => {
+        if (!user || !user.id) return;
+        setFollowLoading(true);
         try {
-            const response = await postService.getPostById(postId);
-            if (response.success && response.data) {
-                setSelectedPost(response.data);
-                setVisibleComments(3);
+            if (isFollowing) {
+                await followService.unfollow(user.id);
+                setIsFollowing(false);
+                setUser(prev => prev ? { ...prev, followers: prev.followers - 1 } : prev);
             } else {
-                setModalError(response.message || 'Failed to load post details');
+                await followService.follow(user.id);
+                setIsFollowing(true);
+                setUser(prev => prev ? { ...prev, followers: prev.followers + 1 } : prev);
             }
-        } catch (err) {
-            setModalError('Failed to load post details');
         } finally {
-            setModalLoading(false);
-        }
-    };
-
-    const handleCreateComment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedPost || !newComment.trim()) return;
-        try {
-            const response = await commentService.createComment({
-                postId: selectedPost.id,
-                comment: newComment.trim()
-            });
-            if (response.success) {
-                const updatedPost = await postService.getPostById(selectedPost.id);
-                if (updatedPost.success && updatedPost.data) {
-                    setSelectedPost(updatedPost.data);
-                }
-                setNewComment('');
-            } else if (response.message === 'You need to log in to continue.') {
-                showToast('You must be logged in to comment.', 'error');
-            } else {
-                showToast('Failed to create comment', 'error');
-            }
-        } catch (error) {
-            showToast('Failed to create comment', 'error');
-        }
-    };
-
-    const handleReplySubmit = async (parentId: string, e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedPost || !replyText.trim()) return;
-        try {
-            const response = await commentService.createComment({
-                postId: selectedPost.id,
-                comment: replyText.trim(),
-                parentId,
-            });
-            if (response.success) {
-                const updatedPost = await postService.getPostById(selectedPost.id);
-                if (updatedPost.success && updatedPost.data) {
-                    setSelectedPost(updatedPost.data);
-                }
-                setReplyText('');
-                setReplyingTo(null);
-            } else if (response.message === 'You need to log in to continue.') {
-                showToast('You must be logged in to comment.', 'error');
-            } else {
-                showToast('Failed to reply to comment', 'error');
-            }
-        } catch (error) {
-            showToast('Failed to reply to comment', 'error');
-        }
-    };
-
-    const handleLikePost = async () => {
-        if (!selectedPost) return;
-        const wasLiked = selectedPost.isLikedByCurrentUser;
-        setSelectedPost({ ...selectedPost, isLikedByCurrentUser: !wasLiked, likeCount: selectedPost.likeCount + (wasLiked ? -1 : 1) });
-        setModalError(null);
-        try {
-            if (wasLiked) {
-                const response = await postService.unlikePost(selectedPost.id);
-                if (!response.success) {
-                    if (response.message?.toLowerCase().includes('not liked')) {
-                        await postService.likePost(selectedPost.id);
-                    } else {
-                        setModalError(response.message || 'Failed to unlike post');
-                    }
-                }
-            } else {
-                const response = await postService.likePost(selectedPost.id);
-                if (!response.success) {
-                    if (response.message?.toLowerCase().includes('already liked')) {
-                        await postService.unlikePost(selectedPost.id);
-                    } else {
-                        setModalError(response.message || 'Failed to like post');
-                    }
-                }
-            }
-            const updatedPost = await postService.getPostById(selectedPost.id);
-            if (updatedPost.success && updatedPost.data) {
-                setSelectedPost(updatedPost.data);
-            }
-        } catch (error) {
-            setModalError('Failed to update like');
-        }
-    };
-
-    const handleLikeComment = async (commentId: string) => {
-        if (!selectedPost) return;
-        try {
-            setModalError(null);
-            const response = await commentService.likeComment(commentId);
-            if (response.success) {
-                const updatedPost = await postService.getPostById(selectedPost.id);
-                if (updatedPost.success && updatedPost.data) {
-                    setSelectedPost(updatedPost.data);
-                }
-            }
-        } catch (error) {
-            setModalError('Failed to update like');
-        }
-    };
-
-    const handleLoadMoreComments = () => {
-        setVisibleComments(prev => prev + 3);
-    };
-
-    const handleDeleteComment = async (commentId: string) => {
-        if (!selectedPost) return;
-        try {
-            setModalError(null);
-            await commentService.deleteComment(commentId);
-            const updatedPost = await postService.getPostById(selectedPost.id);
-            if (updatedPost.success && updatedPost.data) {
-                setSelectedPost(updatedPost.data);
-            }
-        } catch (error) {
-            setModalError('Failed to delete comment');
-        }
-    };
-
-    const handleUpdatePost = async (desc: string) => {
-        if (!selectedPost) return;
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/update-description`, {
-                method: 'PUT',
-                headers: {
-                    'accept': '*/*',
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
-                },
-                body: JSON.stringify({
-                    description: desc,
-                    postId: selectedPost.id,
-                }),
-            });
-            const data = await response.json();
-            if (data.success) {
-                showToast('Post description updated successfully.', 'success');
-                // Refresh post
-                const updatedPost = await postService.getPostById(selectedPost.id);
-                if (updatedPost.success && updatedPost.data) {
-                    setSelectedPost(updatedPost.data);
-                }
-            } else {
-                showToast(data.message || 'Failed to update post', 'error');
-            }
-        } catch (err) {
-            showToast('Failed to update post', 'error');
-        }
-    };
-
-    const handleDeletePost = async () => {
-        if (!selectedPost) return;
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
-                method: 'DELETE',
-                headers: {
-                    'accept': '*/*',
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
-                },
-            });
-            const data = await response.json();
-            if (data.success) {
-                showToast('Post deleted successfully.', 'success');
-                setSelectedPost(null);
-                // Refresh user data to update post count
-                fetchUserData();
-            } else {
-                showToast(data.message || 'Failed to delete post', 'error');
-            }
-        } catch (err) {
-            showToast('Failed to delete post', 'error');
+            setFollowLoading(false);
         }
     };
 
@@ -473,63 +550,32 @@ export default function Profile() {
         );
     }
 
-    if (!user) {
+    if (error || !user) {
         return (
             <div className="text-center py-12">
-                <h2 className="text-2xl font-semibold text-gray-900">Please log in to view your profile</h2>
-            </div>
-        );
-    }
-
-    if (error && error !== 'You need to log in to continue.') {
-        return (
-            <div className="bg-red-50 text-red-500 p-4 rounded-md">
-                {error}
+                <h2 className="text-2xl font-semibold text-gray-900">User not found</h2>
             </div>
         );
     }
 
     return (
         <div className="space-y-8">
-            {error && (
-                <div className="bg-red-50 text-red-500 p-4 rounded-md">
-                    {error}
-                </div>
-            )}
-            {success && (
-                <div className="bg-green-50 text-green-500 p-4 rounded-md">
-                    {success}
-                </div>
-            )}
-
             {/* Profile Header */}
             <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-white rounded-lg shadow">
                 <div className="relative">
                     <div className="relative w-32 h-32 rounded-full overflow-hidden">
                         <Image
-                            src={`${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${user.profilePicture || IMAGE_CONFIG.DEFAULT_PROFILE_PICTURE}`}
+                            src={user.profilePicture ? `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${user.profilePicture}` : "/default-avatar.png"}
                             alt={user.username}
                             fill
                             className="object-cover"
                             onError={(e) => {
                                 const target = e.target as HTMLImageElement;
-                                target.src = `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${IMAGE_CONFIG.DEFAULT_PROFILE_PICTURE}`;
+                                target.src = "/default-avatar.png";
                             }}
                         />
                     </div>
-                    <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer">
-                        <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleProfilePictureChange}
-                        />
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                        </svg>
-                    </label>
                 </div>
-
                 <div className="flex-1 text-center sm:text-left">
                     <h1 className="text-2xl font-bold text-gray-900">{user.username}</h1>
                     <p className="text-gray-600">{user.name} {user.surname}</p>
@@ -537,28 +583,100 @@ export default function Profile() {
                         <p className="text-gray-600">{user.city}, {user.country}</p>
                     )}
                     <div className="mt-2 flex gap-4 text-sm text-gray-500">
-                        <button className="hover:underline" onClick={() => openListModal('followers')}>
-                            {user.postCount} posts
-                        </button>
-                        <button className="hover:underline" onClick={() => openListModal('followers')}>
-                            {user.followers} followers
-                        </button>
-                        <button className="hover:underline" onClick={() => openListModal('following')}>
-                            {user.following} following
-                        </button>
+                        <span>{user.postCount} posts</span>
+                        {isOwnProfile ? (
+                            <>
+                                <button className="hover:underline" onClick={() => openListModal('followers')}>
+                                    {user.followers} followers
+                                </button>
+                                <button className="hover:underline" onClick={() => openListModal('following')}>
+                                    {user.following} following
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-gray-400 cursor-not-allowed">{user.followers} followers</span>
+                                <span className="text-gray-400 cursor-not-allowed">{user.following} following</span>
+                            </>
+                        )}
                     </div>
                 </div>
-
-                <div>
+                {!isOwnProfile && user && user.id && (
                     <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                        onClick={handleFollow}
+                        disabled={followLoading}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${isFollowing ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                        Edit Profile
+                        {isFollowing ? 'Unfollow' : 'Follow'}
                     </button>
+                )}
+                {isOwnProfile && (
+                    <div>
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                        >
+                            Edit Profile
+                        </button>
+                    </div>
+                )}
+            </div>
+            {/* User's Posts */}
+            <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Posts</h2>
+                <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
+                    {user.posts && user.posts.length > 0 ? (
+                        user.posts.map((post) => (
+                            <div key={post.id} className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
+                                onClick={() => handlePostClick(post.id)}
+                            >
+                                <Image
+                                    src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${post.imageUrl}`}
+                                    alt={post.description}
+                                    width={400}
+                                    height={400}
+                                    className="w-full h-auto object-cover"
+                                />
+                                <div className="p-4">
+                                    <p className="text-sm text-gray-800 mb-1 truncate">{post.description}</p>
+                                    <div className="flex gap-4 text-xs text-turkuaz-dark mt-1">
+                                        <span>{post.likeCount} likes</span>
+                                        <span>{post.commentCount} comments</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-gray-500">No posts yet.</div>
+                    )}
                 </div>
             </div>
-
+            {/* Post Detail Modal */}
+            <PostModal
+                isOpen={!!selectedPost}
+                onClose={() => {
+                    setSelectedPost(null);
+                    setModalError(null);
+                }}
+                post={selectedPost}
+                currentUserId={currentUserId}
+                onLikePost={handleLikePost}
+                onLikeComment={handleLikeComment}
+                onCreateComment={handleCreateComment}
+                onReplySubmit={handleReplySubmit}
+                onDeleteComment={handleDeleteComment}
+                onUpdatePost={handleUpdatePost}
+                onDeletePost={handleDeletePost}
+                loading={modalLoading}
+                error={modalError}
+                showToast={showToast}
+                newComment={newComment}
+                setNewComment={setNewComment}
+                replyingTo={replyingTo}
+                setReplyingTo={setReplyingTo}
+                replyText={replyText}
+                setReplyText={setReplyText}
+            />
             {/* Edit Profile Modal */}
             <Modal
                 isOpen={isModalOpen}
@@ -703,61 +821,6 @@ export default function Profile() {
                     </div>
                 </div>
             </Modal>
-
-            {/* User's Posts */}
-            <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Posts</h2>
-                <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
-                    {user.posts.map((post) => (
-                        <div key={post.id} className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
-                            onClick={() => handlePostClick(post.id.toString())}
-                        >
-                            <Image
-                                src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${post.imageUrl}`}
-                                alt={post.description}
-                                width={400}
-                                height={400}
-                                className="w-full h-auto object-cover"
-                            />
-                            <div className="p-4">
-                                <p className="text-sm text-gray-800 mb-1 truncate">{post.description}</p>
-                                <div className="flex gap-4 text-xs text-turkuaz-dark mt-1">
-                                    <span>{post.likeCount} likes</span>
-                                    <span>{post.commentCount} comments</span>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Post Detail Modal */}
-            <PostModal
-                isOpen={!!selectedPost}
-                onClose={() => {
-                    setSelectedPost(null);
-                    setModalError(null);
-                }}
-                post={selectedPost}
-                currentUserId={currentUserId}
-                onLikePost={handleLikePost}
-                onLikeComment={handleLikeComment}
-                onCreateComment={handleCreateComment}
-                onReplySubmit={handleReplySubmit}
-                onDeleteComment={handleDeleteComment}
-                onUpdatePost={handleUpdatePost}
-                onDeletePost={handleDeletePost}
-                loading={modalLoading}
-                error={modalError}
-                showToast={showToast}
-                newComment={newComment}
-                setNewComment={setNewComment}
-                replyingTo={replyingTo}
-                setReplyingTo={setReplyingTo}
-                replyText={replyText}
-                setReplyText={setReplyText}
-            />
-
             {/* List Modal */}
             <Modal
                 isOpen={listModalOpen}

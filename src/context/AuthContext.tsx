@@ -9,7 +9,7 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     loading: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
+    login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
     logout: () => void;
 }
 
@@ -39,18 +39,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string, rememberMe = true) => {
         setLoading(true);
         try {
             const res = await authService.login({ email, password });
             if (res.success && res.data && res.data.token) {
-                tokenService.setToken(res.data.token);
+                tokenService.setToken(res.data.token, rememberMe);
                 const profile = await userService.getProfile();
                 if (profile.success && profile.data) {
                     setUser(profile.data);
-                    // Save userId to localStorage for comment ownership
+                    // Save userId to correct storage for comment ownership
                     if (typeof window !== 'undefined') {
-                        localStorage.setItem('userId', profile.data.id.toString());
+                        if (rememberMe) {
+                            localStorage.setItem('userId', profile.data.id.toString());
+                            sessionStorage.removeItem('userId');
+                        } else {
+                            sessionStorage.setItem('userId', profile.data.id.toString());
+                            localStorage.removeItem('userId');
+                        }
                     }
                 }
                 setLoading(false);
@@ -68,9 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const logout = () => {
         tokenService.removeToken();
         setUser(null);
-        // Remove userId from localStorage
+        // Remove userId from both storages
         if (typeof window !== 'undefined') {
             localStorage.removeItem('userId');
+            sessionStorage.removeItem('userId');
         }
     };
 

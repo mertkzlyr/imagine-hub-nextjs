@@ -23,13 +23,15 @@ export default function Header() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profilePicture, setProfilePicture] = useState<File | null>(null);
+    const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null);
     const router = useRouter();
     const { showToast } = useToast();
+    const [rememberMe, setRememberMe] = useState(true);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-        const success = await login(email, password);
+        const success = await login(email, password, rememberMe);
         setIsSubmitting(false);
         if (success) {
             setIsLoginOpen(false);
@@ -86,20 +88,31 @@ export default function Header() {
         ? `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${user.profilePicture}`
         : '/default-avatar.png';
 
+    const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        setProfilePicture(file);
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setProfilePicturePreview(ev.target?.result as string);
+            reader.readAsDataURL(file);
+        } else {
+            setProfilePicturePreview(null);
+        }
+    };
+
     return (
         <header className="sticky top-0 z-30 bg-white shadow-sm font-sans">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-                <div className="flex items-center gap-2">
-                    <Link href="/" className="text-xl font-bold text-primary">ImagineHub</Link>
+                <div className="flex-1 flex justify-center">
+                    <form className="w-full max-w-2xl flex justify-center">
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            className="w-full rounded-full bg-gray-100 px-6 py-3 text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary border border-gray-200 shadow-md"
+                            disabled
+                        />
+                    </form>
                 </div>
-                <form className="flex-1 flex justify-center">
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        className="w-full max-w-lg rounded-full bg-gray-100 px-4 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary border border-gray-200 shadow-sm"
-                        disabled
-                    />
-                </form>
                 <div className="flex items-center gap-4">
                     {isAuthenticated ? (
                         <>
@@ -127,7 +140,7 @@ export default function Header() {
                     ) : (
                         <button
                             onClick={() => { setIsLoginOpen(true); setTab('login'); }}
-                            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-full shadow-sm transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-full shadow-sm transition-colors"
                         >
                             Login
                         </button>
@@ -150,14 +163,14 @@ export default function Header() {
                     </button>
                 </div>
                 {tab === 'login' ? (
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form onSubmit={handleLogin} className="space-y-4 px-2 sm:px-4 py-2">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Email</label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                 required
                             />
                         </div>
@@ -167,9 +180,21 @@ export default function Header() {
                                 type="password"
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                 required
                             />
+                        </div>
+                        <div className="flex items-center mb-2">
+                            <input
+                                id="rememberMe"
+                                type="checkbox"
+                                checked={rememberMe}
+                                onChange={e => setRememberMe(e.target.checked)}
+                                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            />
+                            <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                                Remember Me
+                            </label>
                         </div>
                         <button
                             type="submit"
@@ -180,14 +205,14 @@ export default function Header() {
                         </button>
                     </form>
                 ) : (
-                    <form onSubmit={handleRegister} className="space-y-4">
+                    <form onSubmit={handleRegister} className="space-y-4 px-2 sm:px-4 py-2">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Username</label>
                             <input
                                 type="text"
                                 value={regData.username}
                                 onChange={e => setRegData({ ...regData, username: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                 required
                             />
                         </div>
@@ -198,7 +223,7 @@ export default function Header() {
                                     type="text"
                                     value={regData.name}
                                     onChange={e => setRegData({ ...regData, name: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                     required
                                 />
                             </div>
@@ -208,7 +233,7 @@ export default function Header() {
                                     type="text"
                                     value={regData.surname}
                                     onChange={e => setRegData({ ...regData, surname: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                     required
                                 />
                             </div>
@@ -219,7 +244,7 @@ export default function Header() {
                                 type="email"
                                 value={regData.email}
                                 onChange={e => setRegData({ ...regData, email: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                 required
                             />
                         </div>
@@ -229,18 +254,36 @@ export default function Header() {
                                 type="password"
                                 value={regData.password}
                                 onChange={e => setRegData({ ...regData, password: e.target.value })}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
                                 required
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Profile Picture</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={e => setProfilePicture(e.target.files?.[0] || null)}
-                                className="mt-1 block w-full text-sm text-gray-500"
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
+                            <div className="flex items-center gap-4">
+                                {profilePicturePreview ? (
+                                    <img
+                                        src={profilePicturePreview}
+                                        alt="Profile Preview"
+                                        className="w-12 h-12 rounded-full object-cover border"
+                                    />
+                                ) : (
+                                    <img
+                                        src={IMAGE_CONFIG.DEFAULT_PROFILE_PICTURE || '/default-avatar.png'}
+                                        alt="Default Avatar"
+                                        className="w-12 h-12 rounded-full object-cover border"
+                                    />
+                                )}
+                                <label className="cursor-pointer px-3 py-2 bg-gray-100 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleProfilePictureChange}
+                                        className="hidden"
+                                    />
+                                    Choose Image
+                                </label>
+                            </div>
                         </div>
                         <button
                             type="submit"

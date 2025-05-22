@@ -68,17 +68,19 @@ class PostService {
     async createPost(createPostDto: CreatePostDto): Promise<ApiResponse<Post>> {
         try {
             const formData = new FormData();
-            formData.append('description', createPostDto.description);
+            formData.append('Description', createPostDto.description);
             if (createPostDto.picture) {
-                formData.append('picture', createPostDto.picture);
+                formData.append('Picture', createPostDto.picture);
             }
+
+            const headers = {
+                ...tokenService.getAuthHeader(),
+                // Do NOT set Content-Type here!
+            };
 
             const response = await fetch(`${this.baseUrl}/posts`, {
                 method: 'POST',
-                headers: {
-                    ...API_CONFIG.HEADERS,
-                    ...tokenService.getAuthHeader(),
-                },
+                headers,
                 body: formData,
                 credentials: 'include'
             });

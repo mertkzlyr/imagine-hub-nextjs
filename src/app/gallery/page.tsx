@@ -7,6 +7,10 @@ import { Post, PostDetail, Comment } from '@/services/types';
 import Image from 'next/image';
 import { IMAGE_CONFIG } from '@/config';
 import Modal from '@/components/Modal';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ToastProvider';
+import { HiOutlineDotsVertical } from 'react-icons/hi';
+import PostModal from '@/components/PostModal';
 
 export default function Gallery() {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -24,6 +28,12 @@ export default function Gallery() {
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const [showBackToTop, setShowBackToTop] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
+    const router = useRouter();
+    const { showToast } = useToast();
+    const [showPostMenu, setShowPostMenu] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showUpdateModal, setShowUpdateModal] = useState(false);
+    const [updateDescription, setUpdateDescription] = useState('');
 
     // Example: get current user ID (replace with your actual logic)
     const currentUserId = typeof window !== 'undefined' ? Number(localStorage.getItem('userId')) : null;
@@ -104,27 +114,24 @@ export default function Gallery() {
     const handleCreateComment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedPost || !newComment.trim()) return;
-
         try {
-            setError(null); // Clear any previous errors
             const response = await commentService.createComment({
                 postId: selectedPost.id,
                 comment: newComment.trim()
             });
-
             if (response.success) {
-                // Refresh post details to get the new comment
                 const updatedPost = await postService.getPostById(selectedPost.id);
                 if (updatedPost.success && updatedPost.data) {
                     setSelectedPost(updatedPost.data);
                 }
                 setNewComment('');
+            } else if (response.message === 'You need to log in to continue.') {
+                showToast('You must be logged in to comment.', 'error');
             } else {
-                setError('Failed to create comment');
+                showToast('Failed to create comment', 'error');
             }
         } catch (error) {
-            console.error('Error creating comment:', error);
-            setError(error instanceof Error ? error.message : 'Failed to create comment');
+            showToast('Failed to create comment', 'error');
         }
     };
 
@@ -132,7 +139,6 @@ export default function Gallery() {
         e.preventDefault();
         if (!selectedPost || !replyText.trim()) return;
         try {
-            setError(null);
             const response = await commentService.createComment({
                 postId: selectedPost.id,
                 comment: replyText.trim(),
@@ -145,11 +151,13 @@ export default function Gallery() {
                 }
                 setReplyText('');
                 setReplyingTo(null);
+            } else if (response.message === 'You need to log in to continue.') {
+                showToast('You must be logged in to comment.', 'error');
             } else {
-                setError('Failed to reply to comment');
+                showToast('Failed to reply to comment', 'error');
             }
         } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to reply to comment');
+            showToast('Failed to reply to comment', 'error');
         }
     };
 
@@ -251,7 +259,7 @@ export default function Gallery() {
                         <p className="text-gray-700">{comment.comment}</p>
                         <div className="flex gap-2 items-center mt-1">
                             <button
-                                className="text-xs text-indigo-500 hover:underline"
+                                className="text-xs text-blue-500 hover:underline"
                                 onClick={() => onReply(comment.id.toString())}
                             >Reply</button>
                             {currentUserId === comment.userId && (
@@ -268,12 +276,12 @@ export default function Gallery() {
                                     value={replyText}
                                     onChange={(e) => setReplyText(e.target.value)}
                                     placeholder="Reply to comment..."
-                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     autoFocus
                                 />
                                 <button
                                     type="submit"
-                                    className="px-3 py-1 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                                    className="px-3 py-1 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
                                 >
                                     Reply
                                 </button>
@@ -337,6 +345,63 @@ export default function Gallery() {
         <div className="mb-6 break-inside-avoid rounded-xl bg-gray-200 animate-pulse h-[350px] w-full max-w-[400px] mx-auto shadow" />
     );
 
+    // Add delete and update handlers
+    const handleDeletePost = async () => {
+        if (!selectedPost) return;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'accept': '*/*',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Post deleted successfully.', 'success');
+                setShowDeleteConfirm(false);
+                setSelectedPost(null);
+                setPosts(posts.filter(p => p.id !== selectedPost.id));
+            } else {
+                showToast(data.message || 'Failed to delete post', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to delete post', 'error');
+        }
+    };
+    const handleUpdatePost = async () => {
+        if (!selectedPost) return;
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/update-description`, {
+                method: 'PUT',
+                headers: {
+                    'accept': '*/*',
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')}`,
+                },
+                body: JSON.stringify({
+                    description: updateDescription,
+                    postId: selectedPost.id,
+                }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Post description updated successfully.', 'success');
+                setShowUpdateModal(false);
+                // Refresh post
+                const updatedPost = await postService.getPostById(selectedPost.id);
+                if (updatedPost.success && updatedPost.data) {
+                    setSelectedPost(updatedPost.data);
+                    setPosts(posts.map(p => p.id === selectedPost.id ? { ...p, description: updateDescription } : p));
+                }
+            } else {
+                showToast(data.message || 'Failed to update post', 'error');
+            }
+        } catch (err) {
+            showToast('Failed to update post', 'error');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center min-h-[60vh]">
@@ -354,7 +419,7 @@ export default function Gallery() {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 bg-gray-50 font-sans min-h-screen">
+        <div className="py-8 bg-gray-50 font-sans min-h-screen">
             <h1 className="text-3xl font-bold mb-8 text-primary">Gallery</h1>
             <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
                 {(loading
@@ -401,96 +466,32 @@ export default function Gallery() {
                 </div>
             </div>
 
-            {/* Post Detail Modal */}
-            <Modal
+            {/* Post Detail Modal (global) */}
+            <PostModal
                 isOpen={!!selectedPost}
                 onClose={() => {
                     setSelectedPost(null);
-                    setError(null); // Clear errors when closing modal
+                    setError(null);
                 }}
-                title=""
-            >
-                {selectedPost && (
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-3 mb-2">
-                            <img
-                                src={selectedPost.profilePicture ? `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${selectedPost.profilePicture}` : '/default-avatar.png'}
-                                alt={selectedPost.username}
-                                className="w-9 h-9 rounded-full object-cover border"
-                                onError={e => (e.currentTarget.src = '/default-avatar.png')}
-                            />
-                            <span className="font-semibold text-base text-primary">{selectedPost.username}</span>
-                        </div>
-                        <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100">
-                            <Image
-                                src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${selectedPost.imageUrl || ''}`}
-                                alt={selectedPost.description || ''}
-                                fill
-                                className="object-cover"
-                            />
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-gray-600">{selectedPost.description}</p>
-                                </div>
-                                <button
-                                    onClick={handleLikePost}
-                                    className="flex items-center gap-2 text-turkuaz-dark hover:text-primary bg-background rounded-full px-3 py-1 shadow-sm border border-turkuaz/20 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                    </svg>
-                                    <span>{selectedPost.likeCount}</span>
-                                </button>
-                            </div>
-                            {/* Comments Section */}
-                            <div className="space-y-4">
-                                <h4 className="font-semibold text-primary">Comments</h4>
-                                <form onSubmit={handleCreateComment} className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={newComment}
-                                        onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder="Add a comment..."
-                                        className="flex-1 rounded-md border border-gray-200 shadow-sm focus:border-primary focus:ring-primary"
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-full shadow-sm transition-colors"
-                                    >
-                                        Post
-                                    </button>
-                                </form>
-                                <div className="space-y-4">
-                                    {selectedPost.comments.slice(0, visibleComments).map((comment) => (
-                                        <CommentItem
-                                            key={comment.id}
-                                            comment={comment}
-                                            onReply={setReplyingTo}
-                                            replyingTo={replyingTo}
-                                            replyText={replyText}
-                                            setReplyText={setReplyText}
-                                            handleReplySubmit={handleReplySubmit}
-                                            handleLikeComment={handleLikeComment}
-                                            handleDeleteComment={handleDeleteComment}
-                                            currentUserId={currentUserId}
-                                        />
-                                    ))}
-                                    {selectedPost.comments.length > visibleComments && (
-                                        <button
-                                            onClick={handleLoadMoreComments}
-                                            className="text-primary hover:text-turkuaz font-medium text-sm"
-                                        >
-                                            See more comments ({selectedPost.comments.length - visibleComments} remaining)
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </Modal>
+                post={selectedPost}
+                currentUserId={currentUserId}
+                onLikePost={handleLikePost}
+                onLikeComment={handleLikeComment}
+                onCreateComment={handleCreateComment}
+                onReplySubmit={handleReplySubmit}
+                onDeleteComment={handleDeleteComment}
+                onUpdatePost={handleUpdatePost}
+                onDeletePost={handleDeletePost}
+                loading={loading}
+                error={error}
+                showToast={showToast}
+                newComment={newComment}
+                setNewComment={setNewComment}
+                replyingTo={replyingTo}
+                setReplyingTo={setReplyingTo}
+                replyText={replyText}
+                setReplyText={setReplyText}
+            />
 
             {/* Back to Top Button */}
             {showBackToTop && (

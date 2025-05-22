@@ -12,7 +12,7 @@ export const IMAGE_CONFIG = {
     // The API serves static files from wwwroot directory
     PROFILE_PICTURE_URL: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/profile_pics`,
     POST_PICTURE_URL: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/post_pics`,
-    DEFAULT_PROFILE_PICTURE: 'default.jpg',
+    DEFAULT_PROFILE_PICTURE: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/profile_pics/default-avatar.png`,
     // File extensions supported by the application
     SUPPORTED_IMAGE_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp', '.gif'] as const,
     // Maximum file size in bytes (e.g., 5MB)
