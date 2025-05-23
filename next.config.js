@@ -14,6 +14,12 @@ const nextConfig = {
                 port: '5169',
                 pathname: '/post_pics/**',
             },
+            {
+                protocol: 'http',
+                hostname: 'localhost',
+                port: '5169',
+                pathname: '/ai_pics/**',
+            },
         ],
     },
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Modal from "@/components/Modal";
@@ -48,6 +48,19 @@ type UpdatePasswordDto = {
     newPassword: string;
 };
 
+// Helper to decode JWT and extract user ID
+function getUserIdFromJWT() {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')) : null;
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Adjust this if your user ID is under a different claim
+        return payload.sub || payload.userId || payload.id || null;
+    } catch {
+        return null;
+    }
+}
+
 export default function UserProfile() {
     const { username } = useParams();
     const [user, setUser] = useState<UserProfileType | null>(null);
@@ -61,7 +74,7 @@ export default function UserProfile() {
     const [replyText, setReplyText] = useState('');
     const [visibleComments, setVisibleComments] = useState(3);
     const router = useRouter();
-    const currentUserId = typeof window !== 'undefined' ? Number(localStorage.getItem('userId') || sessionStorage.getItem('userId')) : null;
+    const currentUserId = getUserIdFromJWT();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [updateData, setUpdateData] = useState<UpdateUserDto>({});
     const [passwordData, setPasswordData] = useState<UpdatePasswordDto>({
@@ -73,10 +86,7 @@ export default function UserProfile() {
     const [success, setSuccess] = useState<string | null>(null);
     const paramUsername = Array.isArray(username) ? username[0] : username;
     const currentUsername = typeof window !== 'undefined' ? localStorage.getItem('username') : null;
-    const isOwnProfile = (
-        (currentUsername && paramUsername && currentUsername.trim().toLowerCase() === paramUsername.trim().toLowerCase()) ||
-        (user && user.id && currentUserId && String(user.id) === String(currentUserId))
-    );
+    const isOwnProfile = user && user.id && currentUserId && String(user.id) === String(currentUserId);
     const [isFollowing, setIsFollowing] = useState<boolean>(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [listModalOpen, setListModalOpen] = useState(false);
@@ -86,6 +96,17 @@ export default function UserProfile() {
     const [listTotalPages, setListTotalPages] = useState(1);
     const [listLoading, setListLoading] = useState(false);
     const { showToast } = useToast();
+    const [selectedTab, setSelectedTab] = useState<'posts' | 'creations'>('posts');
+    const [aiCreations, setAiCreations] = useState<any[]>([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<string | null>(null);
+    const [aiPage, setAiPage] = useState(1);
+    const [aiTotalPages, setAiTotalPages] = useState(1);
+    const aiLoadMoreRef = useRef<HTMLDivElement | null>(null);
+    const [selectedAiCreation, setSelectedAiCreation] = useState<any | null>(null);
+    const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [aiModalLoading, setAiModalLoading] = useState(false);
+    const [aiModalError, setAiModalError] = useState<string | null>(null);
 
     const fetchUserData = async () => {
         if (!username) return;
@@ -542,6 +563,73 @@ export default function UserProfile() {
         );
     }
 
+    // Fetch AI creations
+    const fetchAiCreations = useCallback(async (page = 1) => {
+        setAiLoading(true);
+        setAiError(null);
+        try {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image?page=${page}&pageSize=12`, {
+                headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
+            });
+            if (!res.ok) throw new Error('Failed to fetch AI creations');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                setAiCreations(prev => page === 1 ? data.data : [...prev, ...data.data]);
+                setAiPage(data.pagination?.currentPage || page);
+                setAiTotalPages(data.pagination?.totalPages || 1);
+            } else {
+                setAiError('Failed to fetch AI creations');
+            }
+        } catch (err) {
+            setAiError('Failed to fetch AI creations');
+        } finally {
+            setAiLoading(false);
+        }
+    }, [currentUserId]);
+
+    useEffect(() => {
+        if (isOwnProfile) fetchAiCreations(1);
+    }, [isOwnProfile, fetchAiCreations]);
+
+    // Infinite scroll for AI creations
+    useEffect(() => {
+        if (!isOwnProfile || aiPage >= aiTotalPages) return;
+        const node = aiLoadMoreRef.current;
+        if (!node) return;
+        let didCancel = false;
+        const observer = new window.IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !didCancel && !aiLoading && aiPage < aiTotalPages) {
+                fetchAiCreations(aiPage + 1);
+            }
+        }, { rootMargin: '200px' });
+        observer.observe(node);
+        return () => {
+            didCancel = true;
+            observer.disconnect();
+        };
+    }, [aiPage, aiTotalPages, aiLoading, isOwnProfile, fetchAiCreations]);
+
+    // Fetch AI creation details
+    const handleAiCreationClick = async (id: string) => {
+        setAiModalLoading(true);
+        setAiModalError(null);
+        setAiModalOpen(true);
+        try {
+            const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image/${id}`, {
+                headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
+            });
+            if (!res.ok) throw new Error('Failed to fetch creation');
+            const data = await res.json();
+            setSelectedAiCreation(data);
+        } catch (err) {
+            setAiModalError('Failed to load creation');
+        } finally {
+            setAiModalLoading(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center min-h-[60vh]">
@@ -584,7 +672,7 @@ export default function UserProfile() {
                     )}
                     <div className="mt-2 flex gap-4 text-sm text-gray-500">
                         <span>{user.postCount} posts</span>
-                        {isOwnProfile ? (
+                        {currentUserId && isOwnProfile ? (
                             <>
                                 <button className="hover:underline" onClick={() => openListModal('followers')}>
                                     {user.followers} followers
@@ -595,13 +683,13 @@ export default function UserProfile() {
                             </>
                         ) : (
                             <>
-                                <span className="text-gray-400 cursor-not-allowed">{user.followers} followers</span>
-                                <span className="text-gray-400 cursor-not-allowed">{user.following} following</span>
+                                <span>{user.followers} followers</span>
+                                <span>{user.following} following</span>
                             </>
                         )}
                     </div>
                 </div>
-                {!isOwnProfile && user && user.id && (
+                {!isOwnProfile && user && user.id && currentUserId && (
                     <button
                         onClick={handleFollow}
                         disabled={followLoading}
@@ -621,36 +709,96 @@ export default function UserProfile() {
                     </div>
                 )}
             </div>
+            {/* Tab Selector */}
+            <div className="flex gap-2 mb-6 border-b-2 border-blue-100">
+                <button
+                    className={`relative px-4 py-2 font-semibold transition-colors focus:outline-none ${selectedTab === 'posts' ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                    onClick={() => setSelectedTab('posts')}
+                >
+                    Posts
+                    {selectedTab === 'posts' && (
+                        <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-blue-600 rounded-t-md" style={{ width: '100%' }} />
+                    )}
+                </button>
+                {isOwnProfile && (
+                    <button
+                        className={`relative px-4 py-2 font-semibold transition-colors focus:outline-none ${selectedTab === 'creations' ? 'text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                        onClick={() => setSelectedTab('creations')}
+                    >
+                        My Creations
+                        {selectedTab === 'creations' && (
+                            <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-blue-600 rounded-t-md" style={{ width: '100%' }} />
+                        )}
+                    </button>
+                )}
+            </div>
             {/* User's Posts */}
-            <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Posts</h2>
-                <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
-                    {user.posts && user.posts.length > 0 ? (
-                        user.posts.map((post) => (
-                            <div key={post.id} className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
-                                onClick={() => handlePostClick(post.id)}
+            {selectedTab === 'posts' && (
+                <div>
+                    <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
+                        {user.posts && user.posts.length > 0 ? (
+                            user.posts.map((post) => (
+                                <div key={post.id} className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
+                                    onClick={() => handlePostClick(post.id)}
+                                >
+                                    <Image
+                                        src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${post.imageUrl}`}
+                                        alt={post.description}
+                                        width={400}
+                                        height={400}
+                                        className="w-full h-auto object-cover"
+                                    />
+                                    <div className="p-4">
+                                        <p className="text-sm text-gray-800 mb-1 truncate">{post.description}</p>
+                                        <div className="flex gap-4 text-xs text-turkuaz-dark mt-1">
+                                            <span>{post.likeCount} likes</span>
+                                            <span>{post.commentCount} comments</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-gray-500">No posts yet.</div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* My Creations (AI) */}
+            {isOwnProfile && selectedTab === 'creations' && (
+                <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {aiCreations.map((item) => (
+                            <div key={item.id} className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
+                                onClick={() => handleAiCreationClick(item.id)}
                             >
                                 <Image
-                                    src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${post.imageUrl}`}
-                                    alt={post.description}
+                                    src={`${IMAGE_CONFIG.AI_PICTURE_URL}/${item.imageUrl}`}
+                                    alt={item.prompt}
                                     width={400}
                                     height={400}
                                     className="w-full h-auto object-cover"
                                 />
                                 <div className="p-4">
-                                    <p className="text-sm text-gray-800 mb-1 truncate">{post.description}</p>
-                                    <div className="flex gap-4 text-xs text-turkuaz-dark mt-1">
-                                        <span>{post.likeCount} likes</span>
-                                        <span>{post.commentCount} comments</span>
+                                    <p className="text-sm text-gray-800 mb-1 truncate">{item.prompt}</p>
+                                    <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                                        <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    ) : (
-                        <div className="text-gray-500">No posts yet.</div>
+                        ))}
+                        {aiLoading && Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} className="mb-6 break-inside-avoid rounded-xl bg-gray-200 animate-pulse h-[350px] w-full max-w-[400px] mx-auto shadow" />
+                        ))}
+                        <div ref={aiLoadMoreRef} className="w-full flex justify-center py-8" />
+                    </div>
+                    {aiError && <div className="text-red-500 mt-4">{aiError}</div>}
+                    {aiCreations.length === 0 && !aiLoading && !aiError && (
+                        <div className="text-gray-500">No AI creations yet.</div>
                     )}
                 </div>
-            </div>
+            )}
+
             {/* Post Detail Modal */}
             <PostModal
                 isOpen={!!selectedPost}
@@ -871,6 +1019,91 @@ export default function UserProfile() {
                         )}
                     </div>
                 )}
+            </Modal>
+            {/* AI Creation Modal */}
+            <Modal
+                isOpen={aiModalOpen}
+                onClose={() => { setAiModalOpen(false); setSelectedAiCreation(null); setAiModalError(null); }}
+                title="AI Creation"
+            >
+                {aiModalLoading ? (
+                    <div className="flex justify-center items-center min-h-[300px] text-gray-500">Loading...</div>
+                ) : aiModalError ? (
+                    <div className="text-red-500">{aiModalError}</div>
+                ) : selectedAiCreation ? (
+                    <div className="space-y-6">
+                        <div className="w-full flex justify-center items-center bg-gray-100 rounded-xl overflow-hidden" style={{ maxHeight: '60vh' }}>
+                            <img
+                                src={`${IMAGE_CONFIG.AI_PICTURE_URL}/${selectedAiCreation.imageUrl}`}
+                                alt={selectedAiCreation.prompt}
+                                className="max-h-[60vh] w-auto h-auto object-contain"
+                                style={{ display: 'block', margin: '0 auto' }}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="font-semibold text-lg text-gray-900">{selectedAiCreation.prompt}</div>
+                            <div className="text-gray-500 text-sm">{new Date(selectedAiCreation.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <div className="flex gap-4 justify-end mt-4">
+                            <button
+                                onClick={async () => {
+                                    const url = `${IMAGE_CONFIG.AI_PICTURE_URL}/${selectedAiCreation.imageUrl}`;
+                                    const response = await fetch(url);
+                                    const blob = await response.blob();
+                                    const link = document.createElement('a');
+                                    link.href = window.URL.createObjectURL(blob);
+                                    link.download = selectedAiCreation.imageUrl || 'ai-image.webp';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                }}
+                                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Download
+                            </button>
+                            {user.posts.some(post => post.description === selectedAiCreation.prompt) ? (
+                                <button
+                                    disabled
+                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-400 cursor-not-allowed"
+                                    title="Already posted to gallery"
+                                >
+                                    Already in Gallery
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={async () => {
+                                        const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+                                        try {
+                                            const imageUrl = `${IMAGE_CONFIG.AI_PICTURE_URL}/${selectedAiCreation.imageUrl}`;
+                                            const imageResp = await fetch(imageUrl);
+                                            const imageBlob = await imageResp.blob();
+                                            const formData = new FormData();
+                                            formData.append('Description', selectedAiCreation.prompt);
+                                            formData.append('Picture', imageBlob, selectedAiCreation.imageUrl || 'ai-image.webp');
+                                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Post/posts`, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Authorization': token ? `Bearer ${token}` : '',
+                                                },
+                                                body: formData,
+                                            });
+                                            if (response.ok) {
+                                                showToast('Image saved to gallery!', 'success');
+                                            } else {
+                                                showToast('Failed to save image to gallery.', 'error');
+                                            }
+                                        } catch (err) {
+                                            showToast('Failed to save image to gallery.', 'error');
+                                        }
+                                    }}
+                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                >
+                                    Share to Gallery
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
             </Modal>
         </div>
     );
