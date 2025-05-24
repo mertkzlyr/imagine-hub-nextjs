@@ -31,6 +31,7 @@ export interface Post {
 }
 
 export interface UpdateUserDto {
+    username?: string;
     name?: string;
     surname?: string;
     middleName?: string;

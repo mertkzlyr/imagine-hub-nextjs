@@ -134,7 +134,10 @@ export default function Profile() {
             if (response.success && response.data) {
                 setUser(response.data);
                 setSuccess('Profile updated successfully');
+                setIsModalOpen(false);
                 setTimeout(() => setSuccess(null), 3000);
+            } else {
+                setError(response.message || 'Failed to update profile');
             }
         } catch (error) {
             setError('Failed to update profile');
@@ -658,46 +661,60 @@ export default function Profile() {
                         <h2 className="text-lg font-medium text-gray-900">Profile Information</h2>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Name</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                                 <input
                                     type="text"
-                                    value={updateData.name || user.name}
+                                    value={updateData.username ?? user.username}
+                                    onChange={(e) => setUpdateData({ ...updateData, username: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter username"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                <input
+                                    type="text"
+                                    value={updateData.name ?? user.name}
                                     onChange={(e) => setUpdateData({ ...updateData, name: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter name"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Surname</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
                                 <input
                                     type="text"
-                                    value={updateData.surname || user.surname}
+                                    value={updateData.surname ?? user.surname}
                                     onChange={(e) => setUpdateData({ ...updateData, surname: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter surname"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">City</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
                                 <input
                                     type="text"
-                                    value={updateData.city || user.city || ''}
+                                    value={updateData.city ?? user.city ?? ''}
                                     onChange={(e) => setUpdateData({ ...updateData, city: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter city"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Country</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                                 <input
                                     type="text"
-                                    value={updateData.country || user.country || ''}
+                                    value={updateData.country ?? user.country ?? ''}
                                     onChange={(e) => setUpdateData({ ...updateData, country: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter country"
                                 />
                             </div>
                         </div>
                         <div className="flex justify-end">
                             <button
                                 type="submit"
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
                             >
                                 Save Changes
                             </button>
@@ -709,22 +726,24 @@ export default function Profile() {
                         <h2 className="text-lg font-medium text-gray-900">Change Password</h2>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
                                 <input
                                     type="password"
                                     value={passwordData.currentPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter current password"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700">New Password</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
                                 <input
                                     type="password"
                                     value={passwordData.newPassword}
                                     onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    placeholder="Enter new password"
                                     required
                                 />
                             </div>
@@ -732,7 +751,7 @@ export default function Profile() {
                         <div className="flex justify-end">
                             <button
                                 type="submit"
-                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all"
                             >
                                 Update Password
                             </button>
@@ -745,28 +764,29 @@ export default function Profile() {
                         {!showDeleteConfirm ? (
                             <button
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                                className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all"
                             >
                                 Delete Account
                             </button>
                         ) : (
                             <form onSubmit={handleDeleteAccount} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Enter your password to confirm deletion
                                     </label>
                                     <input
                                         type="password"
                                         value={deletePassword}
                                         onChange={(e) => setDeletePassword(e.target.value)}
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                                        placeholder="Enter password"
                                         required
                                     />
                                 </div>
                                 <div className="flex gap-2">
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+                                        className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all"
                                     >
                                         Confirm Deletion
                                     </button>
@@ -776,7 +796,7 @@ export default function Profile() {
                                             setShowDeleteConfirm(false);
                                             setDeletePassword('');
                                         }}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                        className="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all"
                                     >
                                         Cancel
                                     </button>
