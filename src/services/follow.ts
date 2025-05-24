@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5169/api/Follow';
+import { API_CONFIG } from '@/config';
 
 function getAuthHeaders(): Record<string, string> {
     const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
@@ -11,7 +11,7 @@ export const followService = {
             ...getAuthHeaders(),
             'accept': '*/*',
         };
-        const res = await fetch(`${API_BASE}/${followeeId}`, {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/Follow/${followeeId}`, {
             method: 'POST',
             headers,
         });
@@ -22,7 +22,7 @@ export const followService = {
             ...getAuthHeaders(),
             'accept': '*/*',
         };
-        const res = await fetch(`${API_BASE}/${followeeId}`, {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/Follow/${followeeId}`, {
             method: 'DELETE',
             headers,
         });
@@ -30,14 +30,14 @@ export const followService = {
     },
     async getFollowers(page = 1, pageSize = 10) {
         const headers: Record<string, string> = getAuthHeaders();
-        const res = await fetch(`${API_BASE}/followers?page=${page}&pageSize=${pageSize}`, {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/Follow/followers?page=${page}&pageSize=${pageSize}`, {
             headers,
         });
         return res.json();
     },
     async getFollowing(page = 1, pageSize = 10) {
         const headers: Record<string, string> = getAuthHeaders();
-        const res = await fetch(`${API_BASE}/following?page=${page}&pageSize=${pageSize}`, {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/Follow/following?page=${page}&pageSize=${pageSize}`, {
             headers,
         });
         return res.json();

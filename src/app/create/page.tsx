@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { FaImage } from 'react-icons/fa';
-import { IMAGE_CONFIG } from '@/config';
+import { IMAGE_CONFIG, API_CONFIG } from '@/config';
 import { useToast } from '@/components/ToastProvider';
 import Modal from '@/components/Modal';
 import { userService, User } from '@/services/user';
+import { imageService } from '@/services/image';
 
 export default function Create() {
     const [prompt, setPrompt] = useState('');
@@ -28,6 +29,8 @@ export default function Create() {
     const [aiModalError, setAiModalError] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [sharedGeneratedImage, setSharedGeneratedImage] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [generationTokens, setGenerationTokens] = useState<number>(0);
 
     // Add a function to fetch tokens
     const fetchTokens = useCallback(() => {
@@ -37,7 +40,7 @@ export default function Create() {
             setTokenError('You must be logged in to see your generation tokens.');
             return;
         }
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image/generation-tokens`, {
+        fetch(`${API_CONFIG.BASE_URL}/Image/generation-tokens`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'accept': '*/*',
@@ -81,7 +84,7 @@ export default function Create() {
         setImageLoaded(false);
         setSharedGeneratedImage(null);
         try {
-            const response = await fetch('http://localhost:5169/api/Image/generate-image', {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Image/generate-image`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -109,7 +112,7 @@ export default function Create() {
         setAiError(null);
         try {
             const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image?page=${page}&pageSize=12`, {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/Image?page=${page}&pageSize=12`, {
                 headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
             });
             if (!res.ok) throw new Error('Failed to fetch AI creations');
@@ -157,7 +160,7 @@ export default function Create() {
         setAiModalOpen(true);
         try {
             const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image/${id}`, {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/Image/${id}`, {
                 headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
             });
             if (!res.ok) throw new Error('Failed to fetch creation');
@@ -175,12 +178,19 @@ export default function Create() {
         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
         try {
             const imageUrl = `${IMAGE_CONFIG.AI_PICTURE_URL}/${aiCreation.imageUrl}`;
-            const imageResp = await fetch(imageUrl);
+            const imageResp = await fetch(imageUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
+            });
             const imageBlob = await imageResp.blob();
             const formData = new FormData();
             formData.append('Description', aiCreation.prompt);
             formData.append('Picture', imageBlob, aiCreation.imageUrl || 'ai-image.webp');
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Post/posts`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts`, {
                 method: 'POST',
                 headers: {
                     'Authorization': token ? `Bearer ${token}` : '',
@@ -205,12 +215,19 @@ export default function Create() {
         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
         try {
             const imageUrl = `${IMAGE_CONFIG.AI_PICTURE_URL}/${generatedImage}`;
-            const imageResp = await fetch(imageUrl);
+            const imageResp = await fetch(imageUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Origin': window.location.origin
+                },
+                credentials: 'include'
+            });
             const imageBlob = await imageResp.blob();
             const formData = new FormData();
             formData.append('Description', prompt);
             formData.append('Picture', imageBlob, generatedImage || 'ai-image.webp');
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Post/posts`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts`, {
                 method: 'POST',
                 headers: {
                     'Authorization': token ? `Bearer ${token}` : '',
@@ -227,6 +244,28 @@ export default function Create() {
             }
         } catch (err) {
             showToast('Failed to save image to gallery.', 'error');
+        }
+    };
+
+    const handleGenerateImage = async () => {
+        try {
+            setIsGenerating(true);
+            const response = await imageService.generateImage(prompt);
+            setGeneratedImage(response.data);
+        } catch (error) {
+            console.error('Error generating image:', error);
+            setError('Failed to generate image. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleGetGenerationTokens = async () => {
+        try {
+            const response = await imageService.getGenerationTokens();
+            setGenerationTokens(response.data ?? 0);
+        } catch (error) {
+            console.error('Error fetching generation tokens:', error);
         }
     };
 

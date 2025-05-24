@@ -11,6 +11,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ToastProvider';
 import { HiOutlineDotsVertical } from 'react-icons/hi';
 import PostModal from '@/components/PostModal';
+import { imageService } from '@/services/image';
+import { API_CONFIG } from "@/config";
+import AuthenticatedImage from '@/components/AuthenticatedImage';
 
 export default function Gallery() {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -36,6 +39,11 @@ export default function Gallery() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
     const [updateDescription, setUpdateDescription] = useState('');
+    const [images, setImages] = useState<any[]>([]);
+    const [selectedImage, setSelectedImage] = useState<any | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [pageSize, setPageSize] = useState(10);
 
     // Example: get current user ID (replace with your actual logic)
     const currentUserId = typeof window !== 'undefined' ? Number(localStorage.getItem('userId')) : null;
@@ -363,7 +371,7 @@ export default function Gallery() {
     const handleDeletePost = async () => {
         if (!selectedPost) return;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts/${selectedPost.id}`, {
                 method: 'DELETE',
                 headers: {
                     'accept': '*/*',
@@ -386,7 +394,7 @@ export default function Gallery() {
     const handleUpdatePost = async () => {
         if (!selectedPost) return;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/update-description`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/update-description`, {
                 method: 'PUT',
                 headers: {
                     'accept': '*/*',
@@ -413,6 +421,31 @@ export default function Gallery() {
             }
         } catch (err) {
             showToast('Failed to update post', 'error');
+        }
+    };
+
+    const fetchImages = async () => {
+        try {
+            setIsLoading(true);
+            const response = await imageService.getImages(currentPage, pageSize);
+            setImages(response.data ?? []);
+            setTotalPages(Math.ceil((response.data?.length ?? 0) / pageSize));
+        } catch (error) {
+            console.error('Error fetching images:', error);
+            setError('Failed to fetch images. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleImageClick = async (id: string) => {
+        try {
+            const response = await imageService.getImageById(id);
+            setSelectedImage(response.data ?? null);
+            setIsModalOpen(true);
+        } catch (error) {
+            console.error('Error fetching image details:', error);
+            setError('Failed to fetch image details. Please try again.');
         }
     };
 
@@ -454,12 +487,13 @@ export default function Gallery() {
                             className="mb-6 break-inside-avoid group relative rounded-xl overflow-hidden bg-white shadow hover:shadow-lg cursor-pointer transition-all border border-gray-100"
                             onClick={() => handlePostClick(post.id)}
                         >
-                            <Image
+                            <AuthenticatedImage
                                 src={`${IMAGE_CONFIG.POST_PICTURE_URL}/${post.imageUrl || ''}`}
                                 alt={post.description || ''}
-                                width={400}
-                                height={400}
                                 className="w-full h-auto object-cover"
+                                onError={() => {
+                                    console.error('Error loading image');
+                                }}
                             />
                             <div className="p-4">
                                 <div className="flex items-center gap-2 mb-2">

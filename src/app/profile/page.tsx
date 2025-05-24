@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { userService, User, UpdateUserDto, UpdatePasswordDto } from '@/services/user';
-import { IMAGE_CONFIG } from '@/config';
+import { IMAGE_CONFIG, API_CONFIG } from '@/config';
 import Modal from '@/components/Modal';
 import { postService } from '@/services/post';
 import { commentService } from '@/services/comment';
@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import { followService } from '@/services/follow';
 import { useToast } from '@/components/ToastProvider';
 import PostModal from '@/components/PostModal';
+import { imageService } from '@/services/image';
+import { tokenService } from '@/services/token';
 
 export default function Profile() {
     const [user, setUser] = useState<User | null>(null);
@@ -69,7 +71,7 @@ export default function Profile() {
         setAiError(null);
         try {
             const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image?page=${page}&pageSize=12`, {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/Image?page=${page}&pageSize=12`, {
                 headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
             });
             if (!res.ok) throw new Error('Failed to fetch AI creations');
@@ -361,7 +363,7 @@ export default function Profile() {
     const handleUpdatePost = async (desc: string) => {
         if (!selectedPost) return;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/update-description`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/update-description`, {
                 method: 'PUT',
                 headers: {
                     'accept': '*/*',
@@ -392,7 +394,7 @@ export default function Profile() {
     const handleDeletePost = async () => {
         if (!selectedPost) return;
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts/${selectedPost.id}`, {
                 method: 'DELETE',
                 headers: {
                     'accept': '*/*',
@@ -538,7 +540,7 @@ export default function Profile() {
         setAiModalOpen(true);
         try {
             const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Image/${id}`, {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/Image/${id}`, {
                 headers: { 'Authorization': token ? `Bearer ${token}` : '', 'accept': '*/*' },
             });
             if (!res.ok) throw new Error('Failed to fetch creation');
@@ -1033,7 +1035,7 @@ export default function Profile() {
                                             const formData = new FormData();
                                             formData.append('Description', selectedAiCreation.prompt);
                                             formData.append('Picture', imageBlob, selectedAiCreation.imageUrl || 'ai-image.webp');
-                                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169'}/api/Post/posts`, {
+                                            const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts`, {
                                                 method: 'POST',
                                                 headers: {
                                                     'Authorization': token ? `Bearer ${token}` : '',

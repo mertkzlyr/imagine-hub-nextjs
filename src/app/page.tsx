@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { postService } from "@/services/post";
 import { Post, PostDetail } from "@/services/types";
-import { IMAGE_CONFIG } from "@/config";
+import { IMAGE_CONFIG, API_CONFIG } from "@/config";
 import PostModal from "@/components/PostModal";
 import { useToast } from "@/components/ToastProvider";
 import { commentService } from "@/services/comment";
@@ -164,7 +164,7 @@ export default function Home() {
   const handleDeletePost = async () => {
     if (!selectedPost) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5169/api'}/Post/posts/${selectedPost.id}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts/${selectedPost.id}`, {
         method: 'DELETE',
         headers: {
           'accept': '*/*',
