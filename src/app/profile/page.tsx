@@ -1022,6 +1022,11 @@ export default function Profile() {
                                             });
                                             if (response.ok) {
                                                 showToast('Image saved to gallery!', 'success');
+                                                // Refresh user data to update the posts list
+                                                const userResponse = await userService.getProfile();
+                                                if (userResponse.success && userResponse.data) {
+                                                    setUser(userResponse.data);
+                                                }
                                             } else {
                                                 showToast('Failed to save image to gallery.', 'error');
                                             }
