@@ -14,6 +14,8 @@ export default function Header() {
     const [tab, setTab] = useState<'login' | 'register'>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchDisabled, setIsSearchDisabled] = useState(false);
     const [regData, setRegData] = useState({
         username: '',
         name: '',
@@ -100,16 +102,26 @@ export default function Header() {
         }
     };
 
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            router.push(`/gallery?search=${encodeURIComponent(searchQuery.trim())}`);
+        } else {
+            router.push('/gallery');
+        }
+    };
+
     return (
         <header className="sticky top-0 z-30 bg-white shadow-sm font-sans">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
                 <div className="flex-1 flex justify-center">
-                    <form className="w-full max-w-2xl flex justify-center">
+                    <form onSubmit={handleSearch} className="w-full max-w-2xl flex justify-center">
                         <input
                             type="text"
                             placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full rounded-full bg-gray-100 px-6 py-3 text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary border border-gray-200 shadow-md"
-                            disabled
                         />
                     </form>
                 </div>

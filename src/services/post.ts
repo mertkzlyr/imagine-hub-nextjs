@@ -33,9 +33,10 @@ class PostService {
         }
     }
 
-    async getAllPosts(page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Post[]>> {
+    async getAllPosts(page: number = 1, pageSize: number = 10, search?: string): Promise<PaginatedResponse<Post[]>> {
         try {
-            const response = await fetch(`${this.baseUrl}/posts?page=${page}&pageSize=${pageSize}`, {
+            const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+            const response = await fetch(`${this.baseUrl}/posts?page=${page}&pageSize=${pageSize}${searchParam}`, {
                 headers: {
                     ...API_CONFIG.HEADERS,
                     ...tokenService.getAuthHeader(),

@@ -7,7 +7,7 @@ import { Post, PostDetail, Comment } from '@/services/types';
 import Image from 'next/image';
 import { IMAGE_CONFIG } from '@/config';
 import Modal from '@/components/Modal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ToastProvider';
 import { HiOutlineDotsVertical } from 'react-icons/hi';
 import PostModal from '@/components/PostModal';
@@ -24,11 +24,13 @@ export default function Gallery() {
     const [visibleComments, setVisibleComments] = useState(3); // Show first 3 comments initially
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [searchQuery, setSearchQuery] = useState('');
     const observer = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const [showBackToTop, setShowBackToTop] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { showToast } = useToast();
     const [showPostMenu, setShowPostMenu] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -39,10 +41,22 @@ export default function Gallery() {
     const currentUserId = typeof window !== 'undefined' ? Number(localStorage.getItem('userId')) : null;
 
     useEffect(() => {
+        const search = searchParams.get('search');
+        if (search !== searchQuery) {
+            setSearchQuery(search || '');
+            setPosts([]);
+            setCurrentPage(1);
+            setTotalPages(1);
+            setLoading(true);
+        }
+    }, [searchParams, searchQuery]);
+
+    useEffect(() => {
         const fetchPosts = async () => {
             try {
                 setLoading(true);
-                const response = await postService.getAllPosts(1, 10);
+                setError(null);
+                const response = await postService.getAllPosts(1, 10, searchQuery);
                 if (response.success && response.data) {
                     setPosts(response.data ?? []);
                     setCurrentPage(response.pagination?.currentPage || 1);
@@ -56,7 +70,7 @@ export default function Gallery() {
             }
         };
         fetchPosts();
-    }, []);
+    }, [searchQuery]);
 
     const fetchMorePosts = useCallback(async () => {
         if (isFetching || loadingMore || currentPage >= totalPages) return;
@@ -64,7 +78,7 @@ export default function Gallery() {
         setLoadingMore(true);
         try {
             const nextPage = currentPage + 1;
-            const response = await postService.getAllPosts(nextPage, 10);
+            const response = await postService.getAllPosts(nextPage, 10, searchQuery);
             if (response.success && response.data) {
                 setPosts(prev => [...prev, ...(response.data ?? [])]);
                 setCurrentPage(response.pagination?.currentPage || nextPage);
@@ -76,7 +90,7 @@ export default function Gallery() {
             setLoadingMore(false);
             setIsFetching(false);
         }
-    }, [isFetching, loadingMore, currentPage, totalPages]);
+    }, [isFetching, loadingMore, currentPage, totalPages, searchQuery]);
 
     useEffect(() => {
         if (loading) return;
@@ -420,7 +434,17 @@ export default function Gallery() {
 
     return (
         <div className="py-8 bg-gray-50 font-sans min-h-screen">
-            <h1 className="text-3xl font-bold mb-8 text-primary">Gallery</h1>
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl font-bold text-primary">Gallery</h1>
+                {searchQuery && (
+                    <div className="text-gray-600">
+                        Search results for: <span className="font-semibold">{searchQuery}</span>
+                        {posts.length === 0 && !loading && (
+                            <span className="ml-2 text-gray-500">(No results found)</span>
+                        )}
+                    </div>
+                )}
+            </div>
             <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-6 space-y-6">
                 {(loading
                     ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
