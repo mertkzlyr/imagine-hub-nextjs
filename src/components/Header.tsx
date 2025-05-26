@@ -29,6 +29,9 @@ export default function Header() {
     const router = useRouter();
     const { showToast } = useToast();
     const [rememberMe, setRememberMe] = useState(true);
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [resetToken, setResetToken] = useState('');
+    const [newPassword, setNewPassword] = useState('');
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -111,6 +114,37 @@ export default function Header() {
         }
     };
 
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const response = await authService.forgotPassword({ email });
+            showToast(response.message || 'Reset link sent to your email', 'success');
+            setShowForgotPassword(false);
+            setEmail('');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to send reset link', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleResetPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const response = await authService.resetPassword({ token: resetToken, newPassword });
+            showToast(response.message || 'Password reset successful', 'success');
+            setShowForgotPassword(false);
+            setResetToken('');
+            setNewPassword('');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : 'Failed to reset password', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <header className="sticky top-0 z-30 bg-white shadow-sm font-sans">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
@@ -175,47 +209,104 @@ export default function Header() {
                     </button>
                 </div>
                 {tab === 'login' ? (
-                    <form onSubmit={handleLogin} className="space-y-4 px-2 sm:px-4 py-2">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Email</label>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
-                                required
-                            />
-                        </div>
-                        <div className="flex items-center mb-2">
-                            <input
-                                id="rememberMe"
-                                type="checkbox"
-                                checked={rememberMe}
-                                onChange={e => setRememberMe(e.target.checked)}
-                                className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                            />
-                            <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
-                                Remember Me
-                            </label>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || loading}
-                            className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                            {isSubmitting || loading ? 'Logging in...' : 'Login'}
-                        </button>
-                    </form>
+                    showForgotPassword ? (
+                        <form onSubmit={resetToken ? handleResetPassword : handleForgotPassword} className="space-y-4 px-2 sm:px-4 py-2">
+                            {!resetToken ? (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowForgotPassword(false)}
+                                            className="text-sm text-gray-600 hover:text-gray-900"
+                                        >
+                                            Back to Login
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">New Password</label>
+                                        <input
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                {isSubmitting ? 'Sending...' : resetToken ? 'Reset Password' : 'Send Reset Link'}
+                            </button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleLogin} className="space-y-4 px-2 sm:px-4 py-2">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Password</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
+                                    required
+                                />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <input
+                                        id="rememberMe"
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={e => setRememberMe(e.target.checked)}
+                                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                    />
+                                    <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
+                                        Remember Me
+                                    </label>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForgotPassword(true)}
+                                    className="text-sm text-indigo-600 hover:text-indigo-500"
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || loading}
+                                className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                {isSubmitting || loading ? 'Logging in...' : 'Login'}
+                            </button>
+                        </form>
+                    )
                 ) : (
                     <form onSubmit={handleRegister} className="space-y-4 px-2 sm:px-4 py-2">
                         <div>

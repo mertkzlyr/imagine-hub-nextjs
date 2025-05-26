@@ -25,6 +25,15 @@ export interface LoginResponse {
     token: string;
 }
 
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+    token: string;
+    newPassword: string;
+}
+
 export const authService = {
     login: async (request: LoginRequest): Promise<ApiResponse<LoginResponse>> => {
         const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
@@ -60,6 +69,36 @@ export const authService = {
         });
         if (!response.ok) throw new Error('Registration failed');
         return response.json();
+    },
+
+    forgotPassword: async (request: ForgotPasswordRequest): Promise<ApiResponse<any>> => {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/User/forgot-password`, {
+            method: 'POST',
+            headers: {
+                ...API_CONFIG.HEADERS,
+            },
+            body: JSON.stringify(request),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to send reset link');
+        }
+        return data;
+    },
+
+    resetPassword: async (request: ResetPasswordRequest): Promise<ApiResponse<any>> => {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/User/reset-password`, {
+            method: 'POST',
+            headers: {
+                ...API_CONFIG.HEADERS,
+            },
+            body: JSON.stringify(request),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Failed to reset password');
+        }
+        return data;
     },
 
     logout: () => {
