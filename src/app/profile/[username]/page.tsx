@@ -104,7 +104,6 @@ export default function UserProfile() {
     const [aiError, setAiError] = useState<string | null>(null);
     const [aiPage, setAiPage] = useState(1);
     const [aiTotalPages, setAiTotalPages] = useState(1);
-    const aiLoadMoreRef = useRef<HTMLDivElement | null>(null);
     const [selectedAiCreation, setSelectedAiCreation] = useState<any | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [aiModalLoading, setAiModalLoading] = useState(false);
@@ -568,7 +567,6 @@ export default function UserProfile() {
         );
     }
 
-    // Fetch AI creations
     const fetchAiCreations = useCallback(async (page = 1) => {
         setAiLoading(true);
         setAiError(null);
@@ -580,7 +578,7 @@ export default function UserProfile() {
             if (!res.ok) throw new Error('Failed to fetch AI creations');
             const data = await res.json();
             if (data.success && Array.isArray(data.data)) {
-                setAiCreations(prev => page === 1 ? data.data : [...prev, ...data.data]);
+                setAiCreations(data.data);
                 setAiPage(data.pagination?.currentPage || page);
                 setAiTotalPages(data.pagination?.totalPages || 1);
             } else {
@@ -591,29 +589,17 @@ export default function UserProfile() {
         } finally {
             setAiLoading(false);
         }
-    }, [currentUserId]);
+    }, []);
 
     useEffect(() => {
         if (isOwnProfile) fetchAiCreations(1);
     }, [isOwnProfile, fetchAiCreations]);
 
-    // Infinite scroll for AI creations
-    useEffect(() => {
-        if (!isOwnProfile || aiPage >= aiTotalPages) return;
-        const node = aiLoadMoreRef.current;
-        if (!node) return;
-        let didCancel = false;
-        const observer = new window.IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && !didCancel && !aiLoading && aiPage < aiTotalPages) {
-                fetchAiCreations(aiPage + 1);
-            }
-        }, { rootMargin: '200px' });
-        observer.observe(node);
-        return () => {
-            didCancel = true;
-            observer.disconnect();
-        };
-    }, [aiPage, aiTotalPages, aiLoading, isOwnProfile, fetchAiCreations]);
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= aiTotalPages) {
+            fetchAiCreations(newPage);
+        }
+    };
 
     // Fetch AI creation details
     const handleAiCreationClick = async (id: string) => {
@@ -795,11 +781,32 @@ export default function UserProfile() {
                         {aiLoading && Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="mb-6 break-inside-avoid rounded-xl bg-gray-200 animate-pulse h-[350px] w-full max-w-[400px] mx-auto shadow" />
                         ))}
-                        <div ref={aiLoadMoreRef} className="w-full flex justify-center py-8" />
                     </div>
                     {aiError && <div className="text-red-500 mt-4">{aiError}</div>}
                     {aiCreations.length === 0 && !aiLoading && !aiError && (
                         <div className="text-gray-500">No AI creations yet.</div>
+                    )}
+                    {/* Pagination Controls */}
+                    {aiTotalPages > 1 && (
+                        <div className="flex justify-center items-center gap-4 mt-8">
+                            <button
+                                onClick={() => handlePageChange(aiPage - 1)}
+                                disabled={aiPage === 1 || aiLoading}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Previous
+                            </button>
+                            <span className="text-sm text-gray-600">
+                                Page {aiPage} of {aiTotalPages}
+                            </span>
+                            <button
+                                onClick={() => handlePageChange(aiPage + 1)}
+                                disabled={aiPage === aiTotalPages || aiLoading}
+                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Next
+                            </button>
+                        </div>
                     )}
                 </div>
             )}
@@ -1096,12 +1103,21 @@ export default function UserProfile() {
                                     onClick={async () => {
                                         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
                                         try {
+                                            // First fetch the image as a blob
                                             const imageUrl = `${IMAGE_CONFIG.AI_PICTURE_URL}/${selectedAiCreation.imageUrl}`;
-                                            const imageResp = await fetch(imageUrl);
-                                            const imageBlob = await imageResp.blob();
+                                            const imageResponse = await fetch(imageUrl, {
+                                                headers: {
+                                                    'Authorization': token ? `Bearer ${token}` : '',
+                                                }
+                                            });
+                                            if (!imageResponse.ok) throw new Error('Failed to fetch image');
+                                            const imageBlob = await imageResponse.blob();
+
+                                            // Create form data with the blob
                                             const formData = new FormData();
                                             formData.append('Description', selectedAiCreation.prompt);
-                                            formData.append('Picture', imageBlob, selectedAiCreation.imageUrl || 'ai-image.webp');
+                                            formData.append('Picture', imageBlob, selectedAiCreation.imageUrl);
+
                                             const response = await fetch(`${API_CONFIG.BASE_URL}/Post/posts`, {
                                                 method: 'POST',
                                                 headers: {
@@ -1124,9 +1140,11 @@ export default function UserProfile() {
                                                     setUser(updatedUser);
                                                 }
                                             } else {
-                                                showToast('Failed to save image to gallery.', 'error');
+                                                const errorData = await response.json();
+                                                showToast(errorData.message || 'Failed to save image to gallery.', 'error');
                                             }
                                         } catch (err) {
+                                            console.error('Error sharing image:', err);
                                             showToast('Failed to save image to gallery.', 'error');
                                         }
                                     }}
