@@ -67,9 +67,21 @@ yarn dev
 ## 🏗️ Available Scripts
 
 - `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build the application for production
-- `npm run start` - Start the production server
+- `npm run build` - Build the application for production (required before running start)
+- `npm run start` - Start the production server (must run `npm run build` first)
 - `npm run lint` - Run ESLint for code linting
+
+### Production Deployment
+
+To run the application in production mode:
+
+```bash
+# First, build the application
+npm run build
+
+# Then, start the production server
+npm run start
+```
 
 ## 🐳 Docker Support
 

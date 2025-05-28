@@ -3,6 +3,7 @@ import Modal from './Modal';
 import Image from 'next/image';
 import { HiOutlineDotsVertical } from 'react-icons/hi';
 import { IMAGE_CONFIG } from '@/config';
+import { useRouter } from 'next/navigation';
 
 export default function PostModal({
     isOpen,
@@ -47,6 +48,7 @@ export default function PostModal({
     replyText: string;
     setReplyText: (v: string) => void;
 }) {
+    const router = useRouter();
     const [showPostMenu, setShowPostMenu] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -56,18 +58,33 @@ export default function PostModal({
     if (!post) return null;
 
     function CommentItem({ comment }: { comment: any }) {
+        const handleProfileClick = () => {
+            router.push(`/profile/${comment.username}`);
+        };
+
         return (
             <div className="space-y-2">
                 <div className="flex items-start gap-2">
-                    <img
-                        src={comment.profilePicture ? `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${comment.profilePicture}` : '/default-avatar.png'}
-                        alt={comment.username}
-                        className="w-7 h-7 rounded-full object-cover border mt-1"
-                        onError={e => (e.currentTarget.src = '/default-avatar.png')}
-                    />
+                    <button
+                        onClick={handleProfileClick}
+                        className="group focus:outline-none"
+                        aria-label={`Go to ${comment.username}'s profile`}
+                    >
+                        <img
+                            src={comment.profilePicture ? `${IMAGE_CONFIG.PROFILE_PICTURE_URL}/${comment.profilePicture}` : '/default-avatar.png'}
+                            alt={comment.username}
+                            className="w-7 h-7 rounded-full object-cover border mt-1 group-hover:ring-2 group-hover:ring-blue-400 transition-all"
+                            onError={e => (e.currentTarget.src = '/default-avatar.png')}
+                        />
+                    </button>
                     <div className="flex-1">
                         <div className="flex items-center gap-2">
-                            <span className="font-semibold">{comment.username}</span>
+                            <button
+                                onClick={handleProfileClick}
+                                className="font-semibold hover:text-blue-600 transition-colors focus:outline-none"
+                            >
+                                {comment.username}
+                            </button>
                             <span className="text-sm text-gray-500">
                                 {new Date(comment.createdAt).toLocaleDateString()}
                             </span>

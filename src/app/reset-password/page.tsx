@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/components/ToastProvider';
 import ResetPasswordModal from '@/components/ResetPasswordModal';
 import Header from '@/components/Header';
 import LeftNavigation from '@/components/LeftNavigation';
 
-export default function ResetPassword() {
+function ResetPasswordContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showToast } = useToast();
@@ -49,5 +49,13 @@ export default function ResetPassword() {
                 onClose={() => router.push('/')}
             />
         </>
+    );
+}
+
+export default function ResetPassword() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ResetPasswordContent />
+        </Suspense>
     );
 } 

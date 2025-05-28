@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { postService } from '@/services/post';
 import { commentService } from '@/services/comment';
 import { Post, PostDetail, Comment } from '@/services/types';
@@ -15,7 +15,7 @@ import { imageService } from '@/services/image';
 import { API_CONFIG } from "@/config";
 import AuthenticatedImage from '@/components/AuthenticatedImage';
 
-export default function Gallery() {
+function GalleryContent() {
     const [posts, setPosts] = useState<Post[]>([]);
     const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -564,5 +564,13 @@ export default function Gallery() {
                 </button>
             )}
         </div>
+    );
+}
+
+export default function Gallery() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <GalleryContent />
+        </Suspense>
     );
 } 
