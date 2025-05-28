@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ImagineHub
 
-## Getting Started
+A modern web application built with Next.js, React, TypeScript, and Tailwind CSS.
 
-First, run the development server:
+## 🚀 Features
 
+- Modern React with Next.js 15.3.2
+- TypeScript for type safety
+- Tailwind CSS for styling
+- Responsive design
+- Server-side rendering (SSR)
+- Static site generation (SSG)
+- API routes support
+- React Context for state management
+
+## 🛠️ Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org/) 15.3.2
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **UI Library:** [React](https://reactjs.org/) 19
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) 4.1.7
+- **Icons:** [React Icons](https://react-icons.github.io/react-icons/)
+- **Development:** Turbopack for faster development
+
+## 📦 Project Structure
+
+```
+src/
+├── app/           # Next.js pages and routes
+├── components/    # Reusable UI components
+├── services/      # Business logic and API calls
+├── context/       # React context providers
+└── config/        # Configuration files
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (Latest LTS version recommended)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd imaginehub
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+3. Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🏗️ Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build the application for production
+- `npm run start` - Start the production server
+- `npm run lint` - Run ESLint for code linting
 
-## Learn More
+## 🐳 Docker Support
 
-To learn more about Next.js, take a look at the following resources:
+The project includes Docker configuration for containerized deployment:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+# Build the Docker image
+docker build -t imaginehub .
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Run the container
+docker run -p 3000:3000 imaginehub
+```
 
-## Deploy on Vercel
+## 📚 Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [React Documentation](https://reactjs.org/docs)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/)
+- [Vercel](https://vercel.com/)
+- [React](https://reactjs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
