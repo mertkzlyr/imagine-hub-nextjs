@@ -58,6 +58,7 @@ export default function PostModal({
     if (!post) return null;
 
     function CommentItem({ comment }: { comment: any }) {
+        console.log('DEBUG: currentUserId:', currentUserId, 'comment.userId:', comment.userId);
         const handleProfileClick = () => {
             router.push(`/profile/${comment.username}`);
         };
@@ -98,37 +99,41 @@ export default function PostModal({
                             {currentUserId === comment.userId && (
                                 <button
                                     className="text-xs text-red-500 hover:underline"
-                                    onClick={() => onDeleteComment(comment.id)}
+                                    onClick={() => onDeleteComment(comment.id.toString())}
                                 >Delete</button>
                             )}
                         </div>
                         {replyingTo === comment.id.toString() && (
-                            <form onSubmit={e => onReplySubmit(comment.id.toString(), e)} className="flex gap-2 mt-2">
+                            <form onSubmit={(e) => onReplySubmit(comment.id.toString(), e)} className="flex gap-2 mt-2">
                                 <input
                                     type="text"
                                     value={replyText}
-                                    onChange={e => setReplyText(e.target.value)}
+                                    onChange={(e) => setReplyText(e.target.value)}
                                     placeholder="Reply to comment..."
-                                    className="flex-1 px-3 py-2 rounded-md border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                                     autoFocus
                                 />
                                 <button
                                     type="submit"
                                     className="px-3 py-1 text-xs font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
-                                >Reply</button>
+                                >
+                                    Reply
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => setReplyingTo(null)}
                                     className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                                >Cancel</button>
+                                >
+                                    Cancel
+                                </button>
                             </form>
                         )}
                     </div>
                     <button
                         onClick={() => onLikeComment(comment.id.toString())}
-                        className="flex items-center gap-1 text-blue-500 hover:text-blue-600"
+                        className="flex items-center gap-1 text-gray-400 hover:text-red-500"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                         <span className="text-sm">{comment.likeCount}</span>

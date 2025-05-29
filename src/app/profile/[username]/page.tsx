@@ -76,7 +76,7 @@ export default function UserProfile() {
     const [replyText, setReplyText] = useState('');
     const [visibleComments, setVisibleComments] = useState(3);
     const router = useRouter();
-    const currentUserId = getUserIdFromJWT();
+    const currentUserId = Number(getUserIdFromJWT());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [updateData, setUpdateData] = useState<UpdateUserDto>({});
     const [passwordData, setPasswordData] = useState<UpdatePasswordDto>({
@@ -505,7 +505,7 @@ export default function UserProfile() {
                             {currentUserId === comment.userId && (
                                 <button
                                     className="text-xs text-red-500 hover:underline"
-                                    onClick={() => handleDeleteComment(comment.id)}
+                                    onClick={() => handleDeleteComment(comment.id.toString())}
                                 >Delete</button>
                             )}
                         </div>
